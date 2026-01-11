@@ -21,14 +21,14 @@
         const db = getFirestore(app);
 
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischen saisonlaem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten und Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße"];
+        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischen saisonlaem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten und Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße", "-"];
 
         let currentWeekIndex = 0;
         let selectedDayKey = null;
         let isEditMode = true;
         let planData = {};
         const kwLabels = [];
-        const baseDate = new Date(2026, 0, 12); // Montag, KW 03
+        const baseDate = new Date(2026, 0, 12); 
 
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
@@ -106,13 +106,11 @@
 
         function init() {
             const wrapper = document.getElementById('weekWrapper');
-            for (let w = 0; w < 52; w++) { // Geändert auf 52 Wochen
+            for (let w = 0; w < 52; w++) {
                 const weekPage = document.createElement('div');
                 weekPage.className = 'week-page';
                 let monday = new Date(baseDate);
                 monday.setDate(baseDate.getDate() + (w * 7));
-                
-                // KW Berechnung (Start bei KW 03)
                 const kw = 3 + w; 
                 kwLabels.push(`KW ${kw.toString().padStart(2, '0')}`);
                 
@@ -120,10 +118,11 @@
                 grid.className = 'week-grid';
                 daysFull.forEach((day, i) => {
                     let d = new Date(monday); d.setDate(monday.getDate() + i);
+                    // Hier der korrigierte ds (ohne manuellen extra Punkt im HTML)
                     const ds = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
                     const key = `2026-KW${kw}-${day}`;
                     grid.innerHTML += `<div class="day-card" id="card-${key}" onclick="selectDay('${key}')">
-                        <div class="day-name">${day}</div><div class="day-date">${ds}.</div>
+                        <div class="day-name">${day}</div><div class="day-date">${ds}</div>
                         <div class="selected-meal" id="text-${key}">---</div>
                     </div>`;
                 });
@@ -140,29 +139,71 @@
     </script>
     <style>
         :root { --primary: #4f46e5; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        .controls-wrapper { display: flex; align-items: center; gap: 20px; background: white; padding: 12px 30px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; }
-        .nav-btn { background: var(--primary); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
-        .kw-display { font-weight: 800; min-width: 100px; text-align: center; font-size: 1.1rem; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+        
+        .controls-wrapper { 
+            display: flex; align-items: center; gap: 15px; background: white; 
+            padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; width: fit-content;
+        }
+        
+        .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
+
         .slider-container { width: 100%; max-width: 1200px; overflow: hidden; }
-        .week-wrapper { display: flex; transition: transform 0.5s ease-in-out; }
-        .week-page { min-width: 100%; padding: 10px; box-sizing: border-box; }
-        .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
-        .day-card { background: white; padding: 15px; border-radius: 16px; min-height: 100px; border: 2px solid transparent; }
+        .week-wrapper { display: flex; transition: transform 0.4s ease-in-out; }
+        .week-page { min-width: 100%; box-sizing: border-box; }
+        
+        /* Grid Anpassung für Mobile */
+        .week-grid { 
+            display: grid; 
+            grid-template-columns: repeat(7, 1fr); 
+            gap: 10px; 
+            width: 100%;
+        }
+
+        .day-card { 
+            background: white; padding: 4px; border-radius: 14px; 
+            min-height: 90px; border: 2px solid transparent; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            /* Text-Fixes für lange Wörter */
+            word-wrap: break-word; 
+            overflow-wrap: break-word; 
+            hyphens: auto;
+        }
+
         .edit-mode .day-card { cursor: pointer; }
         .day-card.active { border-color: var(--primary); background: #eef2ff; }
-        .day-name { font-size: 0.7rem; font-weight: 800; color: #64748b; }
-        .day-date { color: var(--primary); font-weight: 600; margin-bottom: 8px; }
-        .selected-meal { font-weight: 700; color: #334155; }
-        .storage-section { width: 100%; max-width: 1200px; background: white; padding: 25px; border-radius: 24px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
-        .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 15px; }
-        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+        .day-name { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
+        .day-date { color: var(--primary); font-weight: 600; margin-bottom: 6px; font-size: 0.85rem; }
+        .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
+
+        .storage-section { width: 100%; max-width: 1200px; background: white; padding: 20px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+        .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 15px; }
+        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; }
         .meal-item:hover { background: var(--accent); color: white; }
-        .history-footer { margin-top: 30px; display: flex; gap: 15px; }
-        .btn-hist { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 12px; cursor: pointer; font-weight: bold; }
-        #historyModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-box { background: white; padding: 25px; border-radius: 20px; max-width: 500px; width: 90%; max-height: 70vh; overflow-y: auto; }
-        @media (max-width: 900px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
+        .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 0.9rem; }
+
+        #historyModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; padding: 20px; }
+        .modal-box { background: white; padding: 20px; border-radius: 20px; max-width: 500px; width: 100%; max-height: 80vh; overflow-y: auto; }
+
+        /* --- MOBILE OPTIMIERUNG --- */
+        @media (max-width: 900px) {
+            .week-grid { 
+                grid-template-columns: repeat(2, 1fr); /* 2 Spalten auf Tablets/großen Handys */
+            }
+        }
+
+        @media (max-width: 500px) {
+            .week-grid { 
+                grid-template-columns: 1fr; /* 1 Spalte auf kleinen Handys -> Volle Breite */
+            }
+            .day-card { min-height: 70px; display: flex; flex-direction: row; align-items: center; gap: 15px; }
+            .day-date { margin-bottom: 0; min-width: 50px; }
+            .selected-meal { flex: 1; }
+        }
     </style>
 </head>
 <body class="edit-mode">
@@ -171,15 +212,15 @@
         <button class="nav-btn" onclick="moveSlider(-1)" id="prevBtn">❮</button>
         <div class="kw-display" id="kwDisplay">...</div>
         <button class="nav-btn" onclick="moveSlider(1)" id="nextBtn">❯</button>
-        <div style="margin-left:15px; border-left:1px solid #eee; padding-left:15px">
+        <div style="margin-left:5px; border-left:1px solid #eee; padding-left:10px; display:flex; align-items:center; gap:5px;">
             <input type="checkbox" id="editToggle" checked onchange="toggleEditMode()"> <small>Edit</small>
         </div>
     </div>
     <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
     <div class="storage-section"><h3>🍴 Speisekammer</h3><div class="meal-storage" id="mealStorage"></div></div>
     <div class="history-footer">
-        <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Woche archivieren</button>
-        <button class="btn-hist" onclick="showHistory()">Historie öffnen</button>
+        <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
+        <button class="btn-hist" onclick="showHistory()">Historie</button>
     </div>
     <div id="historyModal" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
