@@ -81,15 +81,13 @@
             let summary = "";
             let hasData = false;
             
-            // Wir extrahieren die reine Zahl aus dem Label (macht aus "KW 03" -> "3" oder "13")
+            // Dein funktionierender Teil zur Datengewinnung
             const kwNum = parseInt(currentKWLabel.split(' ').pop());
-            const kwWithNull = currentKWLabel.replace(" ", ""); // "KW03"
+            const kwWithNull = currentKWLabel.replace(" ", ""); 
         
             daysFull.forEach(day => {
-                // Wir prüfen beide möglichen ID-Formate, um sicherzugehen
                 const idVariante1 = `2026-KW${kwNum}-${day}`;
                 const idVariante2 = `2026-${kwWithNull}-${day}`;
-                
                 const el = document.getElementById(`text-${idVariante1}`) || document.getElementById(`text-${idVariante2}`);
                 
                 if (el) {
@@ -110,16 +108,35 @@
         
             try {
                 const archivRef = doc(db, "historie", "archiv");
-                await setDoc(archivRef, {
-                    eintraege: arrayUnion({
-                        woche: currentKWLabel,
-                        text: summary,
-                        timestamp: Date.now(),
-                        date: new Date().toLocaleString('de-DE')
-                    })
-                }, { merge: true });
+                
+                // 1. Bestehende Historie abrufen
+                const ds = await getDoc(archivRef);
+                let eintraege = [];
+                if (ds.exists()) {
+                    eintraege = ds.data().eintraege || [];
+                }
         
-                alert(`${currentKWLabel} wurde archiviert!`);
+                // 2. WICHTIG: Den alten Eintrag für DIESE Woche entfernen (Filter)
+                // Das verhindert die Doppelung, falls die KW schon drin ist
+                const bereinigteListe = eintraege.filter(e => e.woche !== currentKWLabel);
+        
+                // 3. Den neuen Eintrag vorbereiten
+                const neuerEintrag = {
+                    woche: currentKWLabel,
+                    text: summary,
+                    timestamp: Date.now(),
+                    date: new Date().toLocaleString('de-DE')
+                };
+        
+                // 4. Den neuen Eintrag zur bereinigten Liste hinzufügen
+                bereinigteListe.push(neuerEintrag);
+        
+                // 5. Die komplette Liste neu in Firebase speichern (ohne arrayUnion)
+                await setDoc(archivRef, {
+                    eintraege: bereinigteListe
+                });
+        
+                alert(`${currentKWLabel} wurde archiviert (und bestehende Version aktualisiert)!`);
             } catch (e) {
                 console.error("Archiv-Fehler:", e);
                 alert("Fehler beim Speichern.");
