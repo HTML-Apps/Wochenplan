@@ -21,7 +21,7 @@
         const db = getFirestore(app);
 
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischen saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten und Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße", "---"];
+        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischen saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten und Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße", "---", "Zusatz-Donnerstage allgemein: Pizza, Wraps, Tortellini, Ravioli, Bruschetta"];
 
         let currentWeekIndex = 0;
         let selectedDayKey = null;
@@ -221,7 +221,7 @@
         :root { --primary: #4f46e5; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         
-        h1 { margin: 5px 0; font-size: 1.5rem; } /* Überschrift optimiert */
+        h1 { margin: 10px 0; font-size: 1.5rem; } /* Überschrift optimiert */
 
         .controls-wrapper { 
             display: flex; align-items: center; gap: 15px; background: white; 
@@ -316,7 +316,7 @@
         }
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } .day-card { min-height: 70px; } .day-info-col { min-width: 60px; } }
+        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } .day-card { min-height: 70px; } .day-info-col { min-width: 70px; } }
     </style>
 </head>
 <body class=""> <h1>Wochenplaner</h1>
