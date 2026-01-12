@@ -8,6 +8,25 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // Prüfen, ob User eingeloggt ist
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Eingeloggt als:", user.email);
+                // Falls die E-Mail nicht berechtigt ist, wird Firebase den Zugriff 
+                // automatisch durch die Regeln (Schritt 2) verweigern.
+            } else {
+                // Wenn nicht eingeloggt, Login-Fenster öffnen
+                signInWithPopup(auth, provider).catch(error => {
+                    alert("Fehler beim Login: " + error.message);
+                });
+            }
+        });
+
         const firebaseConfig = {
             apiKey: "AIzaSyBLsU2DRDVn0Y-1kDAoTwpFHhPV52ARe1Q",
             authDomain: "wochenplan-957ec.firebaseapp.com",
