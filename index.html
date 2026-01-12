@@ -203,7 +203,7 @@
             event.stopPropagation();
             if (!isEditMode) return;
             const currentData = planData[key] || {};
-            const currentMeal = (data && typeof data === 'object') ? data.meal : data;
+            const currentMeal = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
             planData[key] = { meal: currentMeal || "---", chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
