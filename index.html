@@ -176,7 +176,7 @@
                     document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
                     document.getElementById('editZubereitung').value = data.zubereitung || "";
                 } else {
-                    document.getElementById('viewZutaten').innerHTML = "Noch keine Zutaten.";
+                    document.getElementById('viewZutaten').innerHTML = "<li>Noch keine Zutaten.</li>";
                     document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
                     document.getElementById('editZubereitung').value = "";
                     window.addZutatRow(); 
