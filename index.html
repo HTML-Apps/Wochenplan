@@ -292,7 +292,7 @@
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(18px); }
-        .controls-wrapper { display: flex; align-items: center; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; width: fit-content; }
+        .controls-wrapper { display: flex; align-items: center; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; }
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
         .slider-container { width: 100%; max-width: 1200px; overflow: hidden; }
@@ -312,9 +312,9 @@
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
-        .storage-section { width: 100%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+        .storage-section { width: 95%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 15px; }
-        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; justify-content: center; min-height: 50px;}
+        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; justify-content: center; }
         .meal-item:hover { background: #e0e7ff; }
         .edit-mode .meal-item:hover { background: var(--accent); color: white; }
         .edit-mode .day-card { cursor: pointer; }
@@ -336,7 +336,7 @@
     <div id="loginSection" style="display:none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; gap: 20px;">
         <h1 style="position: static;">Wochenplaner</h1>
         <p>Bitte anmelden, um auf den Plan zuzugreifen.</p>
-        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 250px; background: var(--accent);">
+        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 250px; max-height: 40px; background: var(--accent);">
             Mit Google anmelden
         </button>
     </div>
