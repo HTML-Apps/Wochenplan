@@ -26,17 +26,32 @@
         const provider = new GoogleAuthProvider();
 
         // 3. Login-Logik
+        // Prüfen, ob User eingeloggt ist
         onAuthStateChanged(auth, (user) => {
+            const loginSection = document.getElementById('loginSection');
+            const appSection = document.getElementById('appSection');
+
             if (user) {
                 console.log("Eingeloggt als:", user.email);
-                // Erst wenn der User eingeloggt ist, starten wir die Synchronisation
-                setupRealtimeSync();
+                loginSection.style.display = "none";
+                appSection.style.display = "block";
+                setupRealtimeSync(); // Startet die Daten-Synchronisation
             } else {
-                signInWithPopup(auth, provider).catch(error => {
-                    alert("Fehler beim Login: " + error.message);
-                });
+                loginSection.style.display = "flex";
+                appSection.style.display = "none";
             }
         });
+
+        // Neue Funktion für den Button-Klick
+        window.startLogin = () => {
+            signInWithPopup(auth, provider).catch(error => {
+                if (error.code === 'auth/popup-blocked') {
+                    alert("Das Pop-up wurde blockiert. Bitte erlaube Pop-ups für diese Seite oder klicke erneut.");
+                } else {
+                    alert("Fehler: " + error.message);
+                }
+            });
+        };
 
         // --- VARIABLEN & SETUP ---
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
@@ -317,6 +332,14 @@
     </style>
 </head>
 <body> 
+    <div id="loginSection" style="display:none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; gap: 20px;">
+        <h1 style="position: static;">Wochenplaner</h1>
+        <p>Bitte anmelden, um auf den Plan zuzugreifen.</p>
+        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 250px; background: var(--accent);">
+            Mit Google anmelden
+        </button>
+    </div>
+
     <h1>Wochenplaner</h1>
     <div class="controls-wrapper">
         <button class="nav-btn" onclick="moveSlider(-1)" id="prevBtn">❮</button>
