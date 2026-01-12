@@ -19,23 +19,17 @@
             appId: "1:662198750456:web:31d9a7f2f6e21efa7f7f0d"
         };
 
-        // 2. Initialisierung (Muss ZUERST passieren)
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // 3. Login-Logik
-        // Prüfen, ob User eingeloggt ist
         onAuthStateChanged(auth, (user) => {
             const loginSection = document.getElementById('loginSection');
             const appSection = document.getElementById('appSection');
-
             if (user) {
                 loginSection.style.display = "none";
                 appSection.style.display = "block";
-                
-                // WICHTIG: Erst hier darf die Synchronisation starten!
                 setupRealtimeSync(); 
             } else {
                 loginSection.style.display = "flex";
@@ -43,18 +37,16 @@
             }
         });
 
-        // Neue Funktion für den Button-Klick
         window.startLogin = () => {
             signInWithPopup(auth, provider).catch(error => {
                 if (error.code === 'auth/popup-blocked') {
-                    alert("Das Pop-up wurde blockiert. Bitte erlaube Pop-ups für diese Seite oder klicke erneut.");
+                    alert("Das Pop-up wurde blockiert.");
                 } else {
                     alert("Fehler: " + error.message);
                 }
             });
         };
 
-        // --- VARIABLEN & SETUP ---
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
         let currentWeekIndex = 0;
         let selectedDayKey = null;
@@ -63,8 +55,6 @@
         let speisekammerData = [];
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
-
-        // --- CORE FUNKTIONEN ---
 
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
@@ -90,7 +80,6 @@
         }
 
         function setupRealtimeSync() {
-            // Wochenplan Sync
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
@@ -110,7 +99,6 @@
                 }
             });
 
-            // Speisekammer Sync
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
                 const storageEl = document.getElementById('mealStorage');
                 storageEl.innerHTML = "";
@@ -150,36 +138,69 @@
 
         let currentRecipeId = null;
 
+        // --- NEUE LOGIK FÜR STRUKTURIERTE ZUTATEN ---
+        window.addZutatRow = (menge = "", einheit = "", name = "") => {
+            const container = document.getElementById('zutatenEditorContainer');
+            const row = document.createElement('div');
+            row.className = 'zutat-row';
+            row.innerHTML = `
+                <input type="number" placeholder="Menge" value="${menge}" class="z-menge">
+                <input type="text" placeholder="Einh." value="${einheit}" class="z-einheit">
+                <input type="text" placeholder="Zutat" value="${name}" class="z-name">
+                <button onclick="this.parentElement.remove()" class="z-del">×</button>
+            `;
+            container.appendChild(row);
+        };
+
         window.openRecipePopup = async (mealId, mealName) => {
             currentRecipeId = mealId;
             const modal = document.getElementById('recipeModal');
             document.getElementById('recipeTitle').innerText = mealName;
             modal.style.display = "flex";
-            document.getElementById('viewZutaten').innerText = "Lade...";
+            document.getElementById('viewZutaten').innerHTML = "Lade...";
             document.getElementById('viewZubereitung').innerText = "Lade...";
+            document.getElementById('zutatenEditorContainer').innerHTML = "";
 
             try {
                 const res = await getDoc(doc(db, "rezepte", mealId));
                 if (res.exists()) {
                     const data = res.data();
-                    document.getElementById('viewZutaten').innerText = data.zutaten || "";
+                    // Anzeige Logik
+                    if (Array.isArray(data.zutaten)) {
+                        document.getElementById('viewZutaten').innerHTML = data.zutaten.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
+                        data.zutaten.forEach(z => window.addZutatRow(z.menge, z.einheit, z.name));
+                    } else {
+                        // Abwärtskompatibilität für alten Text
+                        document.getElementById('viewZutaten').innerText = data.zutaten || "";
+                        if(data.zutaten) window.addZutatRow("", "", data.zutaten);
+                    }
                     document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
-                    document.getElementById('editZutaten').value = data.zutaten || "";
                     document.getElementById('editZubereitung').value = data.zubereitung || "";
                 } else {
                     document.getElementById('viewZutaten').innerText = "Noch keine Zutaten.";
                     document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
-                    document.getElementById('editZutaten').value = "";
                     document.getElementById('editZubereitung').value = "";
+                    window.addZutatRow(); 
                 }
             } catch (e) { console.error(e); }
         };
 
         window.saveRecipe = async () => {
-            const zutaten = document.getElementById('editZutaten').value;
+            const rows = document.querySelectorAll('.zutat-row');
+            const zutatenArray = Array.from(rows).map(row => ({
+                menge: row.querySelector('.z-menge').value,
+                einheit: row.querySelector('.z-einheit').value,
+                name: row.querySelector('.z-name').value
+            })).filter(z => z.name !== "");
+
             const zubereitung = document.getElementById('editZubereitung').value;
-            await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten, zubereitung }, { merge: true });
-            document.getElementById('viewZutaten').innerText = zutaten;
+            
+            await setDoc(doc(db, "rezepte", currentRecipeId), { 
+                zutaten: zutatenArray, 
+                zubereitung: zubereitung 
+            }, { merge: true });
+
+            document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
             document.getElementById('viewZubereitung').innerText = zubereitung;
             window.cancelEdit();
         };
@@ -216,51 +237,32 @@
             selectedDayKey = key;
         };
 
-    window.archiveCurrentWeek = async () => {
-        const currentKWLabel = kwLabels[currentWeekIndex];
-        if (!confirm(`${currentKWLabel} archivieren? (Bestehende Sicherung dieser Woche wird ggf. aktualisiert)`)) return;
-
-        let summary = "";
-        const kwNum = parseInt(currentKWLabel.split(' ').pop());
-        
-        // Zusammenfassung der Woche generieren
-        daysFull.forEach(day => {
-            const id = `2026-KW${kwNum}-${day}`;
-            const el = document.getElementById(`text-${id}`);
-            if (el && el.innerText !== "---") {
-                summary += `<b>${day}:</b> ${el.innerText}<br>`;
-            }
-        });
-
-        if (summary === "") {
-            alert("Diese Woche enthält keine Mahlzeiten zum Archivieren.");
-            return;
-        }
-
-        try {
-            const archivRef = doc(db, "historie", "archiv");
-            const ds = await getDoc(archivRef);
-            let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
-
-            // DOPPELUNG PRÜFEN & LÖSCHEN:
-            // Wir filtern alle Einträge heraus, die das gleiche KW-Label haben
-            const bereinigteEintraege = eintraege.filter(e => e.woche !== currentKWLabel);
-
-            // Neuen (oder aktualisierten) Eintrag hinzufügen
-            bereinigteEintraege.push({
-                woche: currentKWLabel,
-                text: summary,
-                timestamp: Date.now(),
-                date: new Date().toLocaleString('de-DE')
+        window.archiveCurrentWeek = async () => {
+            const currentKWLabel = kwLabels[currentWeekIndex];
+            if (!confirm(`${currentKWLabel} archivieren?`)) return;
+            let summary = "";
+            const kwNum = parseInt(currentKWLabel.split(' ').pop());
+            daysFull.forEach(day => {
+                const id = `2026-KW${kwNum}-${day}`;
+                const el = document.getElementById(`text-${id}`);
+                if (el && el.innerText !== "---") summary += `<b>${day}:</b> ${el.innerText}<br>`;
             });
-
-            await setDoc(archivRef, { eintraege: bereinigteEintraege });
-            alert(`${currentKWLabel} wurde erfolgreich archiviert!`);
-        } catch (e) {
-            console.error("Archivierungsfehler:", e);
-            alert("Fehler beim Archivieren!");
-        }
-    };
+            if (summary === "") return;
+            try {
+                const archivRef = doc(db, "historie", "archiv");
+                const ds = await getDoc(archivRef);
+                let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
+                const bereinigteEintraege = eintraege.filter(e => e.woche !== currentKWLabel);
+                bereinigteEintraege.push({
+                    woche: currentKWLabel,
+                    text: summary,
+                    timestamp: Date.now(),
+                    date: new Date().toLocaleString('de-DE')
+                });
+                await setDoc(archivRef, { eintraege: bereinigteEintraege });
+                alert(`${currentKWLabel} archiviert!`);
+            } catch (e) { console.error(e); }
+        };
 
         window.showHistory = async () => {
             const modal = document.getElementById('historyModal');
@@ -273,27 +275,18 @@
             }
         };
 
-        // Wir berechnen den korrekten Start-Index basierend auf dem heutigen Datum
         function getInitialWeekIndex() {
             const today = new Date();
-            // Differenz in Tagen berechnen (ms / 1000 / 60 / 60 / 24)
             const diffTime = today - baseDate;
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
-            // Da eine Woche 7 Tage hat, teilen wir durch 7
             let index = Math.floor(diffDays / 7);
-            
-            // Sicherheitscheck: Nicht außerhalb der 52 Wochen landen
             if (index < 0) index = 0;
             if (index > 51) index = 51;
-            
             return index;
         }
 
         function init() {
             const wrapper = document.getElementById('weekWrapper');
-            
-            // 1. Wochen-Karten generieren (wie bisher)
             for (let w = 0; w < 52; w++) {
                 const weekPage = document.createElement('div');
                 weekPage.className = 'week-page';
@@ -301,7 +294,6 @@
                 monday.setDate(baseDate.getDate() + (w * 7));
                 const kw = 3 + w; 
                 kwLabels.push(`KW ${kw.toString().padStart(2, '0')}`);
-                
                 const grid = document.createElement('div');
                 grid.className = 'week-grid';
                 daysFull.forEach((day, i) => {
@@ -325,17 +317,13 @@
                 weekPage.appendChild(grid);
                 wrapper.appendChild(weekPage);
             }
-
-            // 2. Automatisch zur aktuellen Woche springen
             currentWeekIndex = getInitialWeekIndex();
             document.getElementById('weekWrapper').style.transform = `translateX(-${currentWeekIndex * 100}%)`;
-            
             updateKWDisplay();
         }
         window.onload = init;
     </script>
     <style>
-        /* Unveränderte Styles aus deinem Original */
         :root { --primary: #160f8e; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         h1 { margin: 10px 0; font-size: 1.5rem; position: sticky; top: 0; background: var(--bg); width: 100%; text-align: center; z-index: 100; padding: 10px 0; }
@@ -381,6 +369,17 @@
         .recipe-box { text-align: left; margin-top: 15px; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
         textarea { width: 95%; min-height: 100px; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
+        
+        /* Styles für den neuen Zutaten-Editor */
+        .zutat-row { display: flex; gap: 5px; margin-bottom: 5px; }
+        .zutat-row input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.85rem; }
+        .z-menge { width: 60px; }
+        .z-einheit { width: 70px; }
+        .z-name { flex: 1; }
+        .z-del { background: #fee2e2; color: #ef4444; border: none; border-radius: 6px; width: 30px; cursor: pointer; font-weight: bold; }
+        .add-row-btn { background: #e0e7ff; color: var(--primary); border: none; padding: 8px; border-radius: 8px; width: 100%; cursor: pointer; margin-top: 5px; font-weight: 600; }
+        #viewZutaten { padding-left: 20px; margin: 5px 0; }
+
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
     </style>
@@ -388,10 +387,7 @@
 <body> 
     <div id="loginSection" style="display:none; height: 20vh; flex-direction: column; justify-content: center; align-items: center;">
         <h1 style="position: static;">Wochenplaner</h1>
-        <p>Für Zugriff bitte einmalig anmelden.</p>
-        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 250px; max-height: 40px; background: var(--accent);">
-            Mit Google anmelden
-        </button>
+        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 250px; background: var(--accent);">Google Login</button>
     </div>
 
     <div id="appSection" style="display:none; width: 100%;">
@@ -401,11 +397,8 @@
             <div class="kw-display" id="kwDisplay">...</div>
             <button class="nav-btn" onclick="moveSlider(1)" id="nextBtn">❯</button>
             <div style="margin-left:10px; border-left:1px solid #c8d1d9; padding-left:15px; display:flex; align-items:center; gap:8px;">
-                <label class="switch">
-                    <input type="checkbox" id="editToggle" onchange="toggleEditMode()">
-                    <span class="slider"></span>
-                </label>
-                <small style="font-weight:600; color:#64748b">Bearbeiten</small>
+                <label class="switch"><input type="checkbox" id="editToggle" onchange="toggleEditMode()"><span class="slider"></span></label>
+                <small style="font-weight:600; color:#64748b">Edit</small>
             </div>
         </div>
         
@@ -425,9 +418,10 @@
     <div id="recipeModal" class="modal" onclick="window.closeRecipeModal()">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2 id="recipeTitle" style="margin-top:0; color: var(--primary);"></h2>
+            
             <div id="recipeView">
                 <div class="recipe-box">
-                    <strong>Zutaten:</strong> <p id="viewZutaten" style="white-space: pre-wrap;"></p>
+                    <strong>Zutaten:</strong> <ul id="viewZutaten"></ul>
                     <strong>Zubereitung:</strong> <p id="viewZubereitung" style="white-space: pre-wrap;"></p>
                 </div>
                 <div style="display:flex; gap:10px; margin-top:20px;">
@@ -435,10 +429,15 @@
                     <button class="btn-hist" onclick="window.editRecipe()">Bearbeiten</button>
                 </div>
             </div>
+
             <div id="recipeEditor" style="display:none;">
                 <div class="recipe-box">
-                    <strong>Zutaten:</strong> <textarea id="editZutaten"></textarea>
-                    <strong style="margin-top:15px; display:block;">Zubereitung:</strong> <textarea id="editZubereitung" style="min-height:150px;"></textarea>
+                    <strong>Zutaten (Menge | Einheit | Name):</strong>
+                    <div id="zutatenEditorContainer"></div>
+                    <button class="add-row-btn" onclick="window.addZutatRow()">+ Zutat hinzufügen</button>
+                    
+                    <strong style="margin-top:15px; display:block;">Zubereitung:</strong> 
+                    <textarea id="editZubereitung" style="min-height:150px;"></textarea>
                 </div>
                 <div style="display:flex; gap:10px; margin-top:20px;">
                     <button class="btn-hist" style="background:#ef4444" onclick="window.cancelEdit()">Abbrechen</button>
