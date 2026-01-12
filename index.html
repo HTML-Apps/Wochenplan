@@ -240,7 +240,7 @@
         .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
 
         .day-card { 
-            background: white; padding: 10px; border-radius: 14px; min-height: 70px; border: 2px solid transparent; 
+            background: white; padding: 10px; border-radius: 14px; min-height: 55px; border: 2px solid transparent; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s;
         }
 
@@ -254,7 +254,7 @@
         .btn-j { background: var(--julia); }
         .btn-h { background: var(--hendrik); }
 
-        .day-info-col { display: flex; flex-direction: column; min-width: 65px; border-right: 1px solid #f1f5f9; padding-right: 8px; }
+        .day-info-col { display: flex; flex-direction: column; min-width: 70px; border-right: 1px solid #c8d1d9; padding-right: 8px; }
         .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
 
         .edit-mode .day-card { cursor: pointer; }
@@ -289,7 +289,7 @@
                 <input type="checkbox" id="editToggle" onchange="toggleEditMode()">
                 <span class="slider"></span>
             </label>
-            <small style="font-weight:600; color:#64748b">Edit</small>
+            <small style="font-weight:600; color:#64748b">Bearbeiten</small>
         </div>
     </div>
     <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
