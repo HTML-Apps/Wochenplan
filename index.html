@@ -56,6 +56,7 @@
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
 
+        // --- CORE FUNKTIONEN ---
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
             document.body.classList.toggle('edit-mode', isEditMode);
@@ -136,15 +137,15 @@
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
 
+        // --- ZUTATEN EDITOR LOGIK ---
         let currentRecipeId = null;
 
-        // --- NEUE LOGIK FÜR STRUKTURIERTE ZUTATEN ---
         window.addZutatRow = (menge = "", einheit = "", name = "") => {
             const container = document.getElementById('zutatenEditorContainer');
             const row = document.createElement('div');
             row.className = 'zutat-row';
             row.innerHTML = `
-                <input type="number" placeholder="Menge" value="${menge}" class="z-menge">
+                <input type="number" step="any" placeholder="Menge" value="${menge}" class="z-menge">
                 <input type="text" placeholder="Einh." value="${einheit}" class="z-einheit">
                 <input type="text" placeholder="Zutat" value="${name}" class="z-name">
                 <button onclick="this.parentElement.remove()" class="z-del">×</button>
@@ -157,7 +158,7 @@
             const modal = document.getElementById('recipeModal');
             document.getElementById('recipeTitle').innerText = mealName;
             modal.style.display = "flex";
-            document.getElementById('viewZutaten').innerHTML = "Lade...";
+            document.getElementById('viewZutaten').innerHTML = "<li>Lade...</li>";
             document.getElementById('viewZubereitung').innerText = "Lade...";
             document.getElementById('zutatenEditorContainer').innerHTML = "";
 
@@ -165,19 +166,17 @@
                 const res = await getDoc(doc(db, "rezepte", mealId));
                 if (res.exists()) {
                     const data = res.data();
-                    // Anzeige Logik
                     if (Array.isArray(data.zutaten)) {
-                        document.getElementById('viewZutaten').innerHTML = data.zutaten.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
+                        document.getElementById('viewZutaten').innerHTML = data.zutaten.map(z => `<li>${z.menge || ''} ${z.einheit || ''} ${z.name}</li>`).join('');
                         data.zutaten.forEach(z => window.addZutatRow(z.menge, z.einheit, z.name));
                     } else {
-                        // Abwärtskompatibilität für alten Text
                         document.getElementById('viewZutaten').innerText = data.zutaten || "";
                         if(data.zutaten) window.addZutatRow("", "", data.zutaten);
                     }
                     document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
                     document.getElementById('editZubereitung').value = data.zubereitung || "";
                 } else {
-                    document.getElementById('viewZutaten').innerText = "Noch keine Zutaten.";
+                    document.getElementById('viewZutaten').innerHTML = "<li>Noch keine Zutaten.</li>";
                     document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
                     document.getElementById('editZubereitung').value = "";
                     window.addZutatRow(); 
@@ -194,12 +193,7 @@
             })).filter(z => z.name !== "");
 
             const zubereitung = document.getElementById('editZubereitung').value;
-            
-            await setDoc(doc(db, "rezepte", currentRecipeId), { 
-                zutaten: zutatenArray, 
-                zubereitung: zubereitung 
-            }, { merge: true });
-
+            await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
             document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
             document.getElementById('viewZubereitung').innerText = zubereitung;
             window.cancelEdit();
@@ -220,6 +214,89 @@
             window.cancelEdit();
         };
 
+        // --- EINKAUFSLISTEN LOGIK ---
+        window.generateShoppingList = async () => {
+            const currentKW = kwLabels[currentWeekIndex];
+            const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
+            let consolidated = {};
+
+            const weekMeals = [];
+            const kwNum = parseInt(currentKW.split(' ').pop());
+            daysFull.forEach(day => {
+                const key = `2026-KW${kwNum}-${day}`;
+                if (planData[key] && planData[key].meal && planData[key].meal !== "---") {
+                    weekMeals.push(planData[key].meal);
+                }
+            });
+
+            if (weekMeals.length === 0) {
+                alert("Keine Gerichte für diese Woche geplant!");
+                return;
+            }
+
+            for (const mealName of weekMeals) {
+                const mealObj = speisekammerData.find(m => m.name === mealName);
+                if (mealObj) {
+                    const res = await getDoc(doc(db, "rezepte", mealObj.id));
+                    if (res.exists() && Array.isArray(res.data().zutaten)) {
+                        res.data().zutaten.forEach(z => {
+                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                            if (!consolidated[key]) {
+                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: false };
+                            }
+                            consolidated[key].menge += parseFloat(z.menge || 0);
+                        });
+                    }
+                }
+            }
+
+            await setDoc(doc(db, "einkaufslisten", shoppingListId), {
+                items: Object.values(consolidated),
+                kw: currentKW,
+                updatedAt: Date.now()
+            });
+            alert("Liste wurde basierend auf den Rezepten generiert!");
+        };
+
+        let listUnsubscribe = null;
+        window.showShoppingList = () => {
+            const currentKW = kwLabels[currentWeekIndex];
+            const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
+            const modal = document.getElementById('shoppingListModal');
+            const content = document.getElementById('shoppingListContent');
+            document.getElementById('shopTitle').innerText = `Einkaufsliste ${currentKW}`;
+            modal.style.display = "flex";
+
+            if (listUnsubscribe) listUnsubscribe();
+
+            listUnsubscribe = onSnapshot(doc(db, "einkaufslisten", shoppingListId), (ds) => {
+                if (!ds.exists()) {
+                    content.innerHTML = "<p style='text-align:center; color:#64748b;'>Noch keine Liste für diese Woche generiert.</p>";
+                    return;
+                }
+                const items = ds.data().items;
+                content.innerHTML = items.map((item, index) => `
+                    <div class="shop-item">
+                        <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="window.toggleListItem('${shoppingListId}', ${index})">
+                        <span style="${item.checked ? 'text-decoration:line-through; color:#94a3b8;' : ''}">
+                            <strong>${item.menge > 0 ? item.menge : ''} ${item.einheit}</strong> ${item.name}
+                        </span>
+                    </div>
+                `).join('');
+            });
+        };
+
+        window.toggleListItem = async (listId, index) => {
+            const docRef = doc(db, "einkaufslisten", listId);
+            const ds = await getDoc(docRef);
+            if (ds.exists()) {
+                const items = ds.data().items;
+                items[index].checked = !items[index].checked;
+                await setDoc(docRef, { items: items }, { merge: true });
+            }
+        };
+
+        // --- SONSTIGE FUNKTIONEN (HISTORIE/ARCHIV) ---
         window.setChef = async (key, chefLetter, event) => {
             event.stopPropagation();
             if (!isEditMode) return;
@@ -253,12 +330,7 @@
                 const ds = await getDoc(archivRef);
                 let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
                 const bereinigteEintraege = eintraege.filter(e => e.woche !== currentKWLabel);
-                bereinigteEintraege.push({
-                    woche: currentKWLabel,
-                    text: summary,
-                    timestamp: Date.now(),
-                    date: new Date().toLocaleString('de-DE')
-                });
+                bereinigteEintraege.push({ woche: currentKWLabel, text: summary, timestamp: Date.now(), date: new Date().toLocaleString('de-DE') });
                 await setDoc(archivRef, { eintraege: bereinigteEintraege });
                 alert(`${currentKWLabel} archiviert!`);
             } catch (e) { console.error(e); }
@@ -280,8 +352,7 @@
             const diffTime = today - baseDate;
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             let index = Math.floor(diffDays / 7);
-            if (index < 0) index = 0;
-            if (index > 51) index = 51;
+            if (index < 0) index = 0; if (index > 51) index = 51;
             return index;
         }
 
@@ -365,20 +436,23 @@
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: white; padding: 15px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
-        .recipe-box { text-align: left; margin-top: 15px; }
+        .modal-box { background: white; padding: 20px; border-radius: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
-        textarea { width: 95%; min-height: 100px; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
+        textarea { width: 95%; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
         
-        /* Styles für den neuen Zutaten-Editor */
+        /* ZUTATEN EDITOR STYLES */
         .zutat-row { display: flex; gap: 5px; margin-bottom: 5px; }
-        .zutat-row input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.85rem; }
-        .z-menge { width: 60px; }
-        .z-einheit { width: 70px; }
+        .zutat-row input { padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; }
+        .z-menge { width: 70px; }
+        .z-einheit { width: 80px; }
         .z-name { flex: 1; }
-        .z-del { background: #fee2e2; color: #ef4444; border: none; border-radius: 6px; width: 30px; cursor: pointer; font-weight: bold; }
-        .add-row-btn { background: #e0e7ff; color: var(--primary); border: none; padding: 8px; border-radius: 8px; width: 100%; cursor: pointer; margin-top: 5px; font-weight: 600; }
-        #viewZutaten { padding-left: 20px; margin: 5px 0; }
+        .z-del { background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; width: 34px; cursor: pointer; font-weight: bold; }
+        .add-row-btn { background: #e0e7ff; color: var(--primary); border: none; padding: 10px; border-radius: 10px; width: 100%; cursor: pointer; margin-top: 5px; font-weight: 600; }
+        #viewZutaten { padding-left: 20px; margin: 5px 0; color: #334155; }
+
+        /* SHOPPING LIST STYLES */
+        .shop-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
+        .shop-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
@@ -411,6 +485,7 @@
 
         <div class="history-footer">
             <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
+            <button class="btn-hist" onclick="window.showShoppingList()" style="background:var(--accent)">🛒 Einkaufsliste</button>
             <button class="btn-hist" onclick="showHistory()">Historie</button>
         </div>
     </div>
@@ -418,7 +493,6 @@
     <div id="recipeModal" class="modal" onclick="window.closeRecipeModal()">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2 id="recipeTitle" style="margin-top:0; color: var(--primary);"></h2>
-            
             <div id="recipeView">
                 <div class="recipe-box">
                     <strong>Zutaten:</strong> <ul id="viewZutaten"></ul>
@@ -429,13 +503,11 @@
                     <button class="btn-hist" onclick="window.editRecipe()">Bearbeiten</button>
                 </div>
             </div>
-
             <div id="recipeEditor" style="display:none;">
                 <div class="recipe-box">
                     <strong>Zutaten (Menge | Einheit | Name):</strong>
                     <div id="zutatenEditorContainer"></div>
                     <button class="add-row-btn" onclick="window.addZutatRow()">+ Zutat hinzufügen</button>
-                    
                     <strong style="margin-top:15px; display:block;">Zubereitung:</strong> 
                     <textarea id="editZubereitung" style="min-height:150px;"></textarea>
                 </div>
@@ -444,6 +516,15 @@
                     <button class="btn-hist" style="background:var(--accent)" onclick="window.saveRecipe()">Speichern</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="shoppingListModal" class="modal" onclick="this.style.display='none'">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h2 id="shopTitle" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
+            <button class="btn-hist" onclick="window.generateShoppingList()" style="margin-bottom:15px; font-size:0.8rem;">Neu aus Plan generieren</button>
+            <div id="shoppingListContent"></div>
+            <button class="btn-hist" style="background:#64748b; margin-top:20px;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
         </div>
     </div>
 
