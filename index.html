@@ -57,7 +57,7 @@
 
         // Realtime Sync für Wochenplan UND Speisekammer
         function setupRealtimeSync() {
-            // Wochenplan Sync
+            // Wochenplan Sync (Verbesserte Logik)
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
@@ -66,9 +66,15 @@
                         const card = document.getElementById(`card-${key}`);
                         if (el) {
                             const data = planData[key];
-                            const mealText = typeof data === 'object' ? data.meal : data;
-                            const chef = typeof data === 'object' ? data.chef : null;
+                            
+                            // Extrahiere den Namen des Essens, egal welches Format vorliegt
+                            const mealText = (data && typeof data === 'object') ? data.meal : data;
+                            // Extrahiere den Chef (J oder H)
+                            const chef = (data && typeof data === 'object') ? data.chef : null;
+                            
                             el.innerText = mealText || "---";
+                            
+                            // Visuelle Markierung der Karte zurücksetzen und neu setzen
                             card.classList.remove('chef-j', 'chef-h');
                             if (chef === 'J') card.classList.add('chef-j');
                             if (chef === 'H') card.classList.add('chef-h');
