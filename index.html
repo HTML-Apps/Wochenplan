@@ -341,30 +341,32 @@
         </button>
     </div>
 
-    <h1>Wochenplaner</h1>
-    <div class="controls-wrapper">
-        <button class="nav-btn" onclick="moveSlider(-1)" id="prevBtn">❮</button>
-        <div class="kw-display" id="kwDisplay">...</div>
-        <button class="nav-btn" onclick="moveSlider(1)" id="nextBtn">❯</button>
-        <div style="margin-left:5px; border-left:1px solid #c8d1d9; padding-left:15px; display:flex; align-items:center; gap:8px;">
-            <label class="switch">
-                <input type="checkbox" id="editToggle" onchange="toggleEditMode()">
-                <span class="slider"></span>
-            </label>
-            <small style="font-weight:600; color:#64748b">Bearbeiten</small>
+    <div id="appSection" style="display:none; width: 100%;">
+        <h1>Wochenplaner</h1>
+        <div class="controls-wrapper">
+            <button class="nav-btn" onclick="moveSlider(-1)" id="prevBtn">❮</button>
+            <div class="kw-display" id="kwDisplay">...</div>
+            <button class="nav-btn" onclick="moveSlider(1)" id="nextBtn">❯</button>
+            <div style="margin-left:5px; border-left:1px solid #c8d1d9; padding-left:15px; display:flex; align-items:center; gap:8px;">
+                <label class="switch">
+                    <input type="checkbox" id="editToggle" onchange="toggleEditMode()">
+                    <span class="slider"></span>
+                </label>
+                <small style="font-weight:600; color:#64748b">Bearbeiten</small>
+            </div>
         </div>
-    </div>
-    
-    <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
-    
-    <div class="storage-section">
-        <h3>🍴 Speisekammer</h3>
-        <div class="meal-storage" id="mealStorage"></div>
-    </div>
+        
+        <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
+        
+        <div class="storage-section">
+            <h3>🍴 Speisekammer</h3>
+            <div class="meal-storage" id="mealStorage"></div>
+        </div>
 
-    <div class="history-footer">
-        <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
-        <button class="btn-hist" onclick="showHistory()">Historie</button>
+        <div class="history-footer">
+            <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
+            <button class="btn-hist" onclick="showHistory()">Historie</button>
+        </div>
     </div>
 
     <div id="recipeModal" class="modal" onclick="window.closeRecipeModal()">
