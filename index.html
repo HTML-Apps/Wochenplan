@@ -6,7 +6,7 @@
     <title>Wochenplaner</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBLsU2DRDVn0Y-1kDAoTwpFHhPV52ARe1Q",
@@ -21,7 +21,7 @@
         const db = getFirestore(app);
 
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischem saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat)", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten and Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße)", "---", "Zusatz: Pizza", "Zusatz: Wraps", "Zusatz: Tortellini", "Zusatz: Ravioli", "Zusatz: Bruschetta"];
+        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischem saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat and Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat)", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten and Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße)", "---", "Zusatz: Pizza", "Zusatz: Wraps", "Zusatz: Tortellini", "Zusatz: Ravioli", "Zusatz: Bruschetta"];
 
         let currentWeekIndex = 0;
         let selectedDayKey = null;
@@ -30,9 +30,16 @@
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
 
+        // --- FUNKTIONEN ---
+
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
             document.body.classList.toggle('edit-mode', isEditMode);
+            // Wenn Edit aus, Selektion aufheben
+            if(!isEditMode) {
+                document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+                selectedDayKey = null;
+            }
         };
 
         window.moveSlider = (dir) => {
@@ -57,14 +64,10 @@
                         const el = document.getElementById(`text-${key}`);
                         const card = document.getElementById(`card-${key}`);
                         if (el) {
-                            // Falls es ein Objekt ist (neu), nimm .meal, sonst den String
                             const data = planData[key];
                             const mealText = typeof data === 'object' ? data.meal : data;
                             const chef = typeof data === 'object' ? data.chef : null;
-                            
                             el.innerText = mealText || "---";
-                            
-                            // Koch-Status an Card-Klasse binden
                             card.classList.remove('chef-j', 'chef-h');
                             if (chef === 'J') card.classList.add('chef-j');
                             if (chef === 'H') card.classList.add('chef-h');
@@ -74,23 +77,115 @@
             });
         }
 
+        // NEU: Logik für Klick auf Speisekammer-Item
+        window.handleMealClick = async (meal) => {
+            if (isEditMode) {
+                // Im Bearbeitungsmodus: Zuordnen
+                window.assignMeal(meal);
+            } else {
+                // Im normalen Modus: Pop-up mit Details zeigen
+                window.openRecipePopup(meal);
+            }
+        };
+
         window.assignMeal = async (meal) => {
             if (!selectedDayKey || !isEditMode) return;
             const currentData = planData[selectedDayKey] || {};
             const chef = typeof currentData === 'object' ? currentData.chef : null;
-            
             planData[selectedDayKey] = { meal: meal, chef: chef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
 
-        window.setChef = async (key, chefLetter, event) => {
-            event.stopPropagation(); // Verhindert, dass die Karte selektiert wird
-            if (!isEditMode) return;
+        // NEU: Pop-up Logik + Datenbank-Abruf der Rezepte
+        // Variable zum Speichern des aktuell offenen Rezepts
+        let currentEditingMeal = null;
+
+        window.closeRecipeModal = () => {
+            document.getElementById('recipeModal').style.display = "none";
+            window.cancelEdit(); // Sicherstellen, dass Editor beim nächsten Mal zu ist
+        };
+
+        window.openRecipePopup = async (mealName) => {
+            if (mealName === "---") return;
+            currentEditingMeal = mealName;
+            const modal = document.getElementById('recipeModal');
+            document.getElementById('recipeTitle').innerText = mealName;
             
+            modal.style.display = "flex";
+            document.getElementById('viewZutaten').innerText = "Lade...";
+            document.getElementById('viewZubereitung').innerText = "Lade...";
+
+            try {
+                const docId = mealName.replace(/[^a-zA-Z0-9]/g, "_");
+                const res = await getDoc(doc(db, "rezepte", docId));
+                
+                if (res.exists()) {
+                    const data = res.data();
+                    document.getElementById('viewZutaten').innerText = data.zutaten || "";
+                    document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
+                    // Werte auch in den Editor laden
+                    document.getElementById('editZutaten').value = data.zutaten || "";
+                    document.getElementById('editZubereitung').value = data.zubereitung || "";
+                } else {
+                    document.getElementById('viewZutaten').innerText = "Noch keine Zutaten.";
+                    document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
+                    document.getElementById('editZutaten').value = "";
+                    document.getElementById('editZubereitung').value = "";
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        window.editRecipe = () => {
+            document.getElementById('recipeView').style.display = "none";
+            document.getElementById('recipeEditor').style.display = "block";
+        };
+
+        window.cancelEdit = () => {
+            document.getElementById('recipeView').style.display = "block";
+            document.getElementById('recipeEditor').style.display = "none";
+        };
+
+        window.saveRecipe = async () => {
+            if (!currentEditingMeal) return;
+            const docId = currentEditingMeal.replace(/[^a-zA-Z0-9]/g, "_");
+            
+            const newZutaten = document.getElementById('editZutaten').value;
+            const newZubereitung = document.getElementById('editZubereitung').value;
+
+            try {
+                await setDoc(doc(db, "rezepte", docId), {
+                    zutaten: newZutaten,
+                    zubereitung: newZubereitung,
+                    updatedAt: Date.now()
+                }, { merge: true });
+                
+                // UI aktualisieren
+                document.getElementById('viewZutaten').innerText = newZutaten;
+                document.getElementById('viewZubereitung').innerText = newZubereitung;
+                window.cancelEdit();
+                alert("Rezept gespeichert!");
+            } catch (e) {
+                alert("Fehler beim Speichern!");
+                console.error(e);
+            }
+        };
+
+        // Kleine Hilfsfunktion zum Testen/Erstellen von Inhalten
+        window.addTemplate = async (mealName) => {
+            const docId = mealName.replace(/[^a-zA-Z0-9]/g, "_");
+            await setDoc(doc(db, "rezepte", docId), {
+                zutaten: "Beispiel: 500g Lachs, 1 Tasse Reis...",
+                zubereitung: "Beispiel: Alles im Ofen garen bei 180 Grad..."
+            });
+            window.openRecipePopup(mealName);
+        };
+
+        window.setChef = async (key, chefLetter, event) => {
+            event.stopPropagation();
+            if (!isEditMode) return;
             const currentData = planData[key] || {};
             const currentMeal = typeof currentData === 'object' ? currentData.meal : currentData;
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
-
             planData[key] = { meal: currentMeal || "---", chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
@@ -104,70 +199,31 @@
 
         window.archiveCurrentWeek = async () => {
             const currentKWLabel = kwLabels[currentWeekIndex];
-            if (!confirm(`${currentKWLabel} in der Historie speichern?`)) return;
+            if (!confirm(`${currentKWLabel} archivieren?`)) return;
             let summary = "";
-            let hasData = false;
             const kwNum = parseInt(currentKWLabel.split(' ').pop());
-            const kwWithNull = currentKWLabel.replace(" ", ""); 
-
             daysFull.forEach(day => {
-                const idVariante1 = `2026-KW${kwNum}-${day}`;
-                const idVariante2 = `2026-${kwWithNull}-${day}`;
-                const el = document.getElementById(`text-${idVariante1}`) || document.getElementById(`text-${idVariante2}`);
-                const card = document.getElementById(`card-${idVariante1}`) || document.getElementById(`card-${idVariante2}`);
-                
-                if (el) {
-                    const mealText = el.innerText.trim();
-                    let chefSuffix = "";
-                    if (card.classList.contains('chef-j')) chefSuffix = " (J)";
-                    if (card.classList.contains('chef-h')) chefSuffix = " (H)";
-
-                    if (mealText !== "---" && mealText !== "") {
-                        summary += `<b>${day}:</b> ${mealText}${chefSuffix}<br>`;
-                        hasData = true;
-                    } else {
-                        summary += `<b>${day}:</b> --- <br>`;
-                    }
-                }
+                const id = `2026-KW${kwNum}-${day}`;
+                const el = document.getElementById(`text-${id}`);
+                if (el) summary += `<b>${day}:</b> ${el.innerText}<br>`;
             });
-
-            if (!hasData) { alert("Keine Planung vorhanden!"); return; }
-
-            try {
-                const archivRef = doc(db, "historie", "archiv");
-                const ds = await getDoc(archivRef);
-                let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
-                const bereinigteListe = eintraege.filter(e => e.woche !== currentKWLabel);
-                bereinigteListe.push({
-                    woche: currentKWLabel,
-                    text: summary,
-                    timestamp: Date.now(),
-                    date: new Date().toLocaleString('de-DE')
-                });
-                await setDoc(archivRef, { eintraege: bereinigteListe });
-                alert(`${currentKWLabel} archiviert!`);
-            } catch (e) { console.error(e); alert("Fehler beim Speichern."); }
+            const archivRef = doc(db, "historie", "archiv");
+            const ds = await getDoc(archivRef);
+            let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
+            eintraege.push({ woche: currentKWLabel, text: summary, timestamp: Date.now(), date: new Date().toLocaleString('de-DE') });
+            await setDoc(archivRef, { eintraege: eintraege });
+            alert("Archiviert!");
         };
 
         window.showHistory = async () => {
             const modal = document.getElementById('historyModal');
-            const content = document.getElementById('historyContent');
-            content.innerHTML = "Lade Historie...";
+            document.getElementById('historyContent').innerHTML = "Lade...";
             modal.style.display = "flex";
-            try {
-                const ds = await getDoc(doc(db, "historie", "archiv"));
-                if (ds.exists()) {
-                    let list = ds.data().eintraege || [];
-                    list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                    content.innerHTML = list.map(e => `
-                        <div style="margin-bottom:15px; border-bottom:1px solid #eee; padding:10px; background:#f8fafc; border-radius:10px;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                <strong>${e.woche}</strong><small>${e.date}</small>
-                            </div>
-                            <div style="font-size:0.85rem;">${e.text}</div>
-                        </div>`).join('');
-                }
-            } catch (e) { content.innerHTML = "Fehler."; }
+            const ds = await getDoc(doc(db, "historie", "archiv"));
+            if (ds.exists()) {
+                let list = ds.data().eintraege || [];
+                document.getElementById('historyContent').innerHTML = list.map(e => `<div style="padding:10px; border-bottom:1px solid #eee;"><strong>${e.woche}</strong><br>${e.text}</div>`).join('');
+            }
         };
 
         function init() {
@@ -195,16 +251,15 @@
                             <div class="day-name">${day}</div>
                             <div class="day-date">${ds}</div>
                         </div>
-                        <div class="meal-col">
-                            <div class="selected-meal" id="text-${key}">---</div>
-                        </div>
+                        <div class="meal-col"><div class="selected-meal" id="text-${key}">---</div></div>
                     </div>`;
                 });
                 weekPage.appendChild(grid);
                 wrapper.appendChild(weekPage);
             }
             meals.sort().forEach(m => {
-                document.getElementById('mealStorage').innerHTML += `<div class="meal-item" onclick="assignMeal('${m}')">${m}</div>`;
+                // Geändert: Klick ruft handleMealClick auf
+                document.getElementById('mealStorage').innerHTML += `<div class="meal-item" onclick="handleMealClick('${m}')">${m}</div>`;
             });
             updateKWDisplay();
             setupRealtimeSync();
@@ -212,12 +267,10 @@
         window.onload = init;
     </script>
     <style>
-        :root { --primary: #4f46e5; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
+        :root { --primary: #160f8e; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        
         h1 { margin: 10px 0; font-size: 1.5rem; position: sticky; top: 0; background: var(--bg); width: 100%; text-align: center; z-index: 100; padding: 10px 0; }
 
-        /* MODERNER SWITCH */
         .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
@@ -225,12 +278,7 @@
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(18px); }
 
-        .controls-wrapper { 
-            display: flex; align-items: center; gap: 15px; background: white; 
-            padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; width: fit-content;
-        }
-        
+        .controls-wrapper { display: flex; align-items: center; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; width: fit-content; }
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
 
@@ -239,12 +287,7 @@
         .week-page { min-width: 100%; box-sizing: border-box; }
         .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
 
-        .day-card { 
-            background: white; padding: 10px; border-radius: 14px; min-height: 55px; border: 2px solid transparent; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s;
-        }
-
-        /* Koch-Styles */
+        .day-card { background: white; padding: 10px; border-radius: 14px; min-height: 55px; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s; }
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
         .day-card.chef-h { background: #eff6ff; border-color: var(--hendrik); }
 
@@ -256,26 +299,34 @@
 
         .day-info-col { display: flex; flex-direction: column; min-width: 70px; border-right: 1px solid #c8d1d9; padding-right: 8px; }
         .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
-
-        .edit-mode .day-card { cursor: pointer; }
-        .day-card.active { border-color: var(--primary); box-shadow: 0 0 10px rgba(79, 70, 229, 0.2); }
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
 
         .storage-section { width: 100%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 15px; }
-        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; justify-content: center; }
-        .meal-item:hover { background: var(--accent); color: white; }
+        
+        /* Boxen jetzt vertikal und horizontal zentriert */
+        .meal-item { 
+            background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .meal-item:hover { background: #e0e7ff; }
+        .edit-mode .meal-item:hover { background: var(--accent); color: white; }
+        .edit-mode .day-card { cursor: pointer; }
+        .day-card.active { border-color: var(--primary); }
 
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
 
-        #historyModal { position: fixed; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: white; padding: 10px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; position: relative; }
+        /* MODAL STYLES */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: white; padding: 15px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
+        .recipe-box { text-align: left; margin-top: 15px; }
+        .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } .day-card { margin-left: 0px; } }
+        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body> 
@@ -298,7 +349,41 @@
         <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
         <button class="btn-hist" onclick="showHistory()">Historie</button>
     </div>
-    <div id="historyModal" onclick="this.style.display='none'">
+
+    <div id="recipeModal" class="modal" onclick="window.closeRecipeModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h2 id="recipeTitle" style="margin-top:0; color: var(--primary);"></h2>
+            
+            <div id="recipeView">
+                <div class="recipe-box">
+                    <strong>Zutaten:</strong>
+                    <p id="viewZutaten" style="white-space: pre-wrap;"></p>
+                    <strong>Zubereitung:</strong>
+                    <p id="viewZubereitung" style="white-space: pre-wrap;"></p>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button class="btn-hist" style="background:#64748b" onclick="window.closeRecipeModal()">Schließen</button>
+                    <button class="btn-hist" onclick="window.editRecipe()">Bearbeiten</button>
+                </div>
+            </div>
+
+            <div id="recipeEditor" style="display:none;">
+                <div class="recipe-box">
+                    <strong>Zutaten:</strong>
+                    <textarea id="editZutaten" style="width:95%; min-height:100px; border-radius:10px; border:1px solid #ccc; padding:10px; font-family:inherit;"></textarea>
+                    
+                    <strong style="margin-top:15px; display:block;">Zubereitung:</strong>
+                    <textarea id="editZubereitung" style="width:95%; min-height:150px; border-radius:10px; border:1px solid #ccc; padding:10px; font-family:inherit;"></textarea>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button class="btn-hist" style="background:#ef4444" onclick="window.cancelEdit()">Abbrechen</button>
+                    <button class="btn-hist" style="background:var(--accent)" onclick="window.saveRecipe()">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2>Historie</h2><div id="historyContent"></div>
         </div>
