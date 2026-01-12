@@ -273,8 +273,27 @@
             }
         };
 
+        // Wir berechnen den korrekten Start-Index basierend auf dem heutigen Datum
+        function getInitialWeekIndex() {
+            const today = new Date();
+            // Differenz in Tagen berechnen (ms / 1000 / 60 / 60 / 24)
+            const diffTime = today - baseDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Da eine Woche 7 Tage hat, teilen wir durch 7
+            let index = Math.floor(diffDays / 7);
+            
+            // Sicherheitscheck: Nicht außerhalb der 52 Wochen landen
+            if (index < 0) index = 0;
+            if (index > 51) index = 51;
+            
+            return index;
+        }
+
         function init() {
             const wrapper = document.getElementById('weekWrapper');
+            
+            // 1. Wochen-Karten generieren (wie bisher)
             for (let w = 0; w < 52; w++) {
                 const weekPage = document.createElement('div');
                 weekPage.className = 'week-page';
@@ -282,10 +301,12 @@
                 monday.setDate(baseDate.getDate() + (w * 7));
                 const kw = 3 + w; 
                 kwLabels.push(`KW ${kw.toString().padStart(2, '0')}`);
+                
                 const grid = document.createElement('div');
                 grid.className = 'week-grid';
                 daysFull.forEach((day, i) => {
-                    let d = new Date(monday); d.setDate(monday.getDate() + i);
+                    let d = new Date(monday); 
+                    d.setDate(monday.getDate() + i);
                     const ds = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
                     const key = `2026-KW${kw}-${day}`;
                     grid.innerHTML += `
@@ -304,8 +325,12 @@
                 weekPage.appendChild(grid);
                 wrapper.appendChild(weekPage);
             }
+
+            // 2. Automatisch zur aktuellen Woche springen
+            currentWeekIndex = getInitialWeekIndex();
+            document.getElementById('weekWrapper').style.transform = `translateX(-${currentWeekIndex * 100}%)`;
+            
             updateKWDisplay();
-            // setupRealtimeSync wird jetzt erst NACH dem erfolgreichen Login in onAuthStateChanged aufgerufen
         }
         window.onload = init;
     </script>
