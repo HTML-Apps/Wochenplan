@@ -216,23 +216,51 @@
             selectedDayKey = key;
         };
 
-        window.archiveCurrentWeek = async () => {
-            const currentKWLabel = kwLabels[currentWeekIndex];
-            if (!confirm(`${currentKWLabel} archivieren?`)) return;
-            let summary = "";
-            const kwNum = parseInt(currentKWLabel.split(' ').pop());
-            daysFull.forEach(day => {
-                const id = `2026-KW${kwNum}-${day}`;
-                const el = document.getElementById(`text-${id}`);
-                if (el) summary += `<b>${day}:</b> ${el.innerText}<br>`;
-            });
+    window.archiveCurrentWeek = async () => {
+        const currentKWLabel = kwLabels[currentWeekIndex];
+        if (!confirm(`${currentKWLabel} archivieren? (Bestehende Sicherung dieser Woche wird ggf. aktualisiert)`)) return;
+
+        let summary = "";
+        const kwNum = parseInt(currentKWLabel.split(' ').pop());
+        
+        // Zusammenfassung der Woche generieren
+        daysFull.forEach(day => {
+            const id = `2026-KW${kwNum}-${day}`;
+            const el = document.getElementById(`text-${id}`);
+            if (el && el.innerText !== "---") {
+                summary += `<b>${day}:</b> ${el.innerText}<br>`;
+            }
+        });
+
+        if (summary === "") {
+            alert("Diese Woche enthält keine Mahlzeiten zum Archivieren.");
+            return;
+        }
+
+        try {
             const archivRef = doc(db, "historie", "archiv");
             const ds = await getDoc(archivRef);
             let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
-            eintraege.push({ woche: currentKWLabel, text: summary, timestamp: Date.now(), date: new Date().toLocaleString('de-DE') });
-            await setDoc(archivRef, { eintraege: eintraege });
-            alert("Archiviert!");
-        };
+
+            // DOPPELUNG PRÜFEN & LÖSCHEN:
+            // Wir filtern alle Einträge heraus, die das gleiche KW-Label haben
+            const bereinigteEintraege = eintraege.filter(e => e.woche !== currentKWLabel);
+
+            // Neuen (oder aktualisierten) Eintrag hinzufügen
+            bereinigteEintraege.push({
+                woche: currentKWLabel,
+                text: summary,
+                timestamp: Date.now(),
+                date: new Date().toLocaleString('de-DE')
+            });
+
+            await setDoc(archivRef, { eintraege: bereinigteEintraege });
+            alert(`${currentKWLabel} wurde erfolgreich archiviert!`);
+        } catch (e) {
+            console.error("Archivierungsfehler:", e);
+            alert("Fehler beim Archivieren!");
+        }
+    };
 
         window.showHistory = async () => {
             const modal = document.getElementById('historyModal');
