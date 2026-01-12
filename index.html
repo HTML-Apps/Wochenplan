@@ -6,7 +6,7 @@
     <title>Wochenplaner</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBLsU2DRDVn0Y-1kDAoTwpFHhPV52ARe1Q",
@@ -21,21 +21,20 @@
         const db = getFirestore(app);
 
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischem saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat and Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat)", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten and Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße)", "---", "Zusatz: Pizza", "Zusatz: Wraps", "Zusatz: Tortellini", "Zusatz: Ravioli", "Zusatz: Bruschetta"];
-
+        
         let currentWeekIndex = 0;
         let selectedDayKey = null;
         let isEditMode = false;
         let planData = {};
+        let speisekammerData = []; // Wird aus DB geladen
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
 
-        // --- FUNKTIONEN ---
+        // --- CORE FUNKTIONEN ---
 
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
             document.body.classList.toggle('edit-mode', isEditMode);
-            // Wenn Edit aus, Selektion aufheben
             if(!isEditMode) {
                 document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
                 selectedDayKey = null;
@@ -56,7 +55,9 @@
             document.getElementById('nextBtn').disabled = currentWeekIndex === 51;
         }
 
+        // Realtime Sync für Wochenplan UND Speisekammer
         function setupRealtimeSync() {
+            // Wochenplan Sync
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
@@ -75,39 +76,53 @@
                     });
                 }
             });
+
+            // Speisekammer Sync (Vorschlag A)
+            onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
+                const storageEl = document.getElementById('mealStorage');
+                storageEl.innerHTML = "";
+                speisekammerData = [];
+                
+                snapshot.forEach((doc) => {
+                    const item = { id: doc.id, ...doc.data() };
+                    speisekammerData.push(item);
+                    storageEl.innerHTML += `<div class="meal-item" onclick="handleMealClick('${item.id}', '${item.name}')">${item.name}</div>`;
+                });
+                
+                // Add Button für neue Gerichte (nur im Edit-Mode sichtbar via CSS)
+                storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999;">+ Neu</div>`;
+            });
         }
 
-        // NEU: Logik für Klick auf Speisekammer-Item
-        window.handleMealClick = async (meal) => {
-            if (isEditMode) {
-                // Im Bearbeitungsmodus: Zuordnen
-                window.assignMeal(meal);
-            } else {
-                // Im normalen Modus: Pop-up mit Details zeigen
-                window.openRecipePopup(meal);
+        window.addNewMeal = async () => {
+            const name = prompt("Name des neuen Gerichts:");
+            if (name) {
+                const newId = "m_" + Date.now();
+                await setDoc(doc(db, "speisekammer", newId), { name: name });
             }
         };
 
-        window.assignMeal = async (meal) => {
+        window.handleMealClick = async (mealId, mealName) => {
+            if (isEditMode) {
+                window.assignMeal(mealName);
+            } else {
+                window.openRecipePopup(mealId, mealName);
+            }
+        };
+
+        window.assignMeal = async (mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             const currentData = planData[selectedDayKey] || {};
             const chef = typeof currentData === 'object' ? currentData.chef : null;
-            planData[selectedDayKey] = { meal: meal, chef: chef };
+            planData[selectedDayKey] = { meal: mealName, chef: chef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
 
-        // NEU: Pop-up Logik + Datenbank-Abruf der Rezepte
-        // Variable zum Speichern des aktuell offenen Rezepts
-        let currentEditingMeal = null;
+        // --- REZEPT LOGIK (ID-BASIERT) ---
+        let currentRecipeId = null;
 
-        window.closeRecipeModal = () => {
-            document.getElementById('recipeModal').style.display = "none";
-            window.cancelEdit(); // Sicherstellen, dass Editor beim nächsten Mal zu ist
-        };
-
-        window.openRecipePopup = async (mealName) => {
-            if (mealName === "---") return;
-            currentEditingMeal = mealName;
+        window.openRecipePopup = async (mealId, mealName) => {
+            currentRecipeId = mealId;
             const modal = document.getElementById('recipeModal');
             document.getElementById('recipeTitle').innerText = mealName;
             
@@ -116,14 +131,11 @@
             document.getElementById('viewZubereitung').innerText = "Lade...";
 
             try {
-                const docId = mealName.replace(/[^a-zA-Z0-9]/g, "_");
-                const res = await getDoc(doc(db, "rezepte", docId));
-                
+                const res = await getDoc(doc(db, "rezepte", mealId));
                 if (res.exists()) {
                     const data = res.data();
                     document.getElementById('viewZutaten').innerText = data.zutaten || "";
                     document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
-                    // Werte auch in den Editor laden
                     document.getElementById('editZutaten').value = data.zutaten || "";
                     document.getElementById('editZubereitung').value = data.zubereitung || "";
                 } else {
@@ -133,6 +145,15 @@
                     document.getElementById('editZubereitung').value = "";
                 }
             } catch (e) { console.error(e); }
+        };
+
+        window.saveRecipe = async () => {
+            const zutaten = document.getElementById('editZutaten').value;
+            const zubereitung = document.getElementById('editZubereitung').value;
+            await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten, zubereitung }, { merge: true });
+            document.getElementById('viewZutaten').innerText = zutaten;
+            document.getElementById('viewZubereitung').innerText = zubereitung;
+            window.cancelEdit();
         };
 
         window.editRecipe = () => {
@@ -145,40 +166,12 @@
             document.getElementById('recipeEditor').style.display = "none";
         };
 
-        window.saveRecipe = async () => {
-            if (!currentEditingMeal) return;
-            const docId = currentEditingMeal.replace(/[^a-zA-Z0-9]/g, "_");
-            
-            const newZutaten = document.getElementById('editZutaten').value;
-            const newZubereitung = document.getElementById('editZubereitung').value;
-
-            try {
-                await setDoc(doc(db, "rezepte", docId), {
-                    zutaten: newZutaten,
-                    zubereitung: newZubereitung,
-                    updatedAt: Date.now()
-                }, { merge: true });
-                
-                // UI aktualisieren
-                document.getElementById('viewZutaten').innerText = newZutaten;
-                document.getElementById('viewZubereitung').innerText = newZubereitung;
-                window.cancelEdit();
-                alert("Rezept gespeichert!");
-            } catch (e) {
-                alert("Fehler beim Speichern!");
-                console.error(e);
-            }
+        window.closeRecipeModal = () => {
+            document.getElementById('recipeModal').style.display = "none";
+            window.cancelEdit();
         };
 
-        // Kleine Hilfsfunktion zum Testen/Erstellen von Inhalten
-        window.addTemplate = async (mealName) => {
-            const docId = mealName.replace(/[^a-zA-Z0-9]/g, "_");
-            await setDoc(doc(db, "rezepte", docId), {
-                zutaten: "Beispiel: 500g Lachs, 1 Tasse Reis...",
-                zubereitung: "Beispiel: Alles im Ofen garen bei 180 Grad..."
-            });
-            window.openRecipePopup(mealName);
-        };
+        // --- RESTLICHE FUNKTIONEN (UI & ARCHIV) ---
 
         window.setChef = async (key, chefLetter, event) => {
             event.stopPropagation();
@@ -222,7 +215,7 @@
             const ds = await getDoc(doc(db, "historie", "archiv"));
             if (ds.exists()) {
                 let list = ds.data().eintraege || [];
-                document.getElementById('historyContent').innerHTML = list.map(e => `<div style="padding:10px; border-bottom:1px solid #eee;"><strong>${e.woche}</strong><br>${e.text}</div>`).join('');
+                document.getElementById('historyContent').innerHTML = list.reverse().map(e => `<div style="padding:10px; border-bottom:1px solid #eee;"><strong>${e.woche}</strong> (${e.date})<br>${e.text}</div>`).join('');
             }
         };
 
@@ -257,10 +250,6 @@
                 weekPage.appendChild(grid);
                 wrapper.appendChild(weekPage);
             }
-            meals.sort().forEach(m => {
-                // Geändert: Klick ruft handleMealClick auf
-                document.getElementById('mealStorage').innerHTML += `<div class="meal-item" onclick="handleMealClick('${m}')">${m}</div>`;
-            });
             updateKWDisplay();
             setupRealtimeSync();
         }
@@ -306,7 +295,6 @@
         .storage-section { width: 100%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 15px; }
         
-        /* Boxen jetzt vertikal und horizontal zentriert */
         .meal-item { 
             background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; 
             display: flex; align-items: center; justify-content: center;
@@ -316,14 +304,18 @@
         .edit-mode .day-card { cursor: pointer; }
         .day-card.active { border-color: var(--primary); }
 
+        /* Verstecke den Neu-Button wenn nicht im Bearbeitungsmodus */
+        .add-meal-btn { display: none !important; }
+        .edit-mode .add-meal-btn { display: flex !important; }
+
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
 
-        /* MODAL STYLES */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: white; padding: 15px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         .recipe-box { text-align: left; margin-top: 15px; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
+        textarea { width: 95%; min-height: 100px; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
@@ -343,8 +335,14 @@
             <small style="font-weight:600; color:#64748b">Bearbeiten</small>
         </div>
     </div>
+    
     <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
-    <div class="storage-section"><h3>🍴 Speisekammer</h3><div class="meal-storage" id="mealStorage"></div></div>
+    
+    <div class="storage-section">
+        <h3>🍴 Speisekammer</h3>
+        <div class="meal-storage" id="mealStorage"></div>
+    </div>
+
     <div class="history-footer">
         <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
         <button class="btn-hist" onclick="showHistory()">Historie</button>
@@ -353,27 +351,20 @@
     <div id="recipeModal" class="modal" onclick="window.closeRecipeModal()">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2 id="recipeTitle" style="margin-top:0; color: var(--primary);"></h2>
-            
             <div id="recipeView">
                 <div class="recipe-box">
-                    <strong>Zutaten:</strong>
-                    <p id="viewZutaten" style="white-space: pre-wrap;"></p>
-                    <strong>Zubereitung:</strong>
-                    <p id="viewZubereitung" style="white-space: pre-wrap;"></p>
+                    <strong>Zutaten:</strong> <p id="viewZutaten" style="white-space: pre-wrap;"></p>
+                    <strong>Zubereitung:</strong> <p id="viewZubereitung" style="white-space: pre-wrap;"></p>
                 </div>
                 <div style="display:flex; gap:10px; margin-top:20px;">
                     <button class="btn-hist" style="background:#64748b" onclick="window.closeRecipeModal()">Schließen</button>
                     <button class="btn-hist" onclick="window.editRecipe()">Bearbeiten</button>
                 </div>
             </div>
-
             <div id="recipeEditor" style="display:none;">
                 <div class="recipe-box">
-                    <strong>Zutaten:</strong>
-                    <textarea id="editZutaten" style="width:95%; min-height:100px; border-radius:10px; border:1px solid #ccc; padding:10px; font-family:inherit;"></textarea>
-                    
-                    <strong style="margin-top:15px; display:block;">Zubereitung:</strong>
-                    <textarea id="editZubereitung" style="width:95%; min-height:150px; border-radius:10px; border:1px solid #ccc; padding:10px; font-family:inherit;"></textarea>
+                    <strong>Zutaten:</strong> <textarea id="editZutaten"></textarea>
+                    <strong style="margin-top:15px; display:block;">Zubereitung:</strong> <textarea id="editZubereitung" style="min-height:150px;"></textarea>
                 </div>
                 <div style="display:flex; gap:10px; margin-top:20px;">
                     <button class="btn-hist" style="background:#ef4444" onclick="window.cancelEdit()">Abbrechen</button>
