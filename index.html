@@ -7,26 +7,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        // Prüfen, ob User eingeloggt ist
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log("Eingeloggt als:", user.email);
-                // Falls die E-Mail nicht berechtigt ist, wird Firebase den Zugriff 
-                // automatisch durch die Regeln (Schritt 2) verweigern.
-            } else {
-                // Wenn nicht eingeloggt, Login-Fenster öffnen
-                signInWithPopup(auth, provider).catch(error => {
-                    alert("Fehler beim Login: " + error.message);
-                });
-            }
-        });
-
+        // 1. Firebase Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyBLsU2DRDVn0Y-1kDAoTwpFHhPV52ARe1Q",
             authDomain: "wochenplan-957ec.firebaseapp.com",
@@ -36,16 +19,32 @@
             appId: "1:662198750456:web:31d9a7f2f6e21efa7f7f0d"
         };
 
+        // 2. Initialisierung (Muss ZUERST passieren)
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
 
+        // 3. Login-Logik
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Eingeloggt als:", user.email);
+                // Erst wenn der User eingeloggt ist, starten wir die Synchronisation
+                setupRealtimeSync();
+            } else {
+                signInWithPopup(auth, provider).catch(error => {
+                    alert("Fehler beim Login: " + error.message);
+                });
+            }
+        });
+
+        // --- VARIABLEN & SETUP ---
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-        
         let currentWeekIndex = 0;
         let selectedDayKey = null;
         let isEditMode = false;
         let planData = {};
-        let speisekammerData = []; // Wird aus DB geladen
+        let speisekammerData = [];
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
 
@@ -74,9 +73,8 @@
             document.getElementById('nextBtn').disabled = currentWeekIndex === 51;
         }
 
-        // Realtime Sync für Wochenplan UND Speisekammer
         function setupRealtimeSync() {
-            // Wochenplan Sync (Verbesserte Logik)
+            // Wochenplan Sync
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
@@ -85,15 +83,9 @@
                         const card = document.getElementById(`card-${key}`);
                         if (el) {
                             const data = planData[key];
-                            
-                            // Extrahiere den Namen des Essens, egal welches Format vorliegt
                             const mealText = (data && typeof data === 'object') ? data.meal : data;
-                            // Extrahiere den Chef (J oder H)
                             const chef = (data && typeof data === 'object') ? data.chef : null;
-                            
                             el.innerText = mealText || "---";
-                            
-                            // Visuelle Markierung der Karte zurücksetzen und neu setzen
                             card.classList.remove('chef-j', 'chef-h');
                             if (chef === 'J') card.classList.add('chef-j');
                             if (chef === 'H') card.classList.add('chef-h');
@@ -102,19 +94,16 @@
                 }
             });
 
-            // Speisekammer Sync (Vorschlag A)
+            // Speisekammer Sync
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
                 const storageEl = document.getElementById('mealStorage');
                 storageEl.innerHTML = "";
                 speisekammerData = [];
-                
                 snapshot.forEach((doc) => {
                     const item = { id: doc.id, ...doc.data() };
                     speisekammerData.push(item);
                     storageEl.innerHTML += `<div class="meal-item" onclick="handleMealClick('${item.id}', '${item.name}')">${item.name}</div>`;
                 });
-                
-                // Add Button für neue Gerichte (nur im Edit-Mode sichtbar via CSS)
                 storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999;">+ Neu</div>`;
             });
         }
@@ -143,14 +132,12 @@
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
 
-        // --- REZEPT LOGIK (ID-BASIERT) ---
         let currentRecipeId = null;
 
         window.openRecipePopup = async (mealId, mealName) => {
             currentRecipeId = mealId;
             const modal = document.getElementById('recipeModal');
             document.getElementById('recipeTitle').innerText = mealName;
-            
             modal.style.display = "flex";
             document.getElementById('viewZutaten').innerText = "Lade...";
             document.getElementById('viewZubereitung').innerText = "Lade...";
@@ -196,13 +183,11 @@
             window.cancelEdit();
         };
 
-        // --- RESTLICHE FUNKTIONEN (UI & ARCHIV) ---
-
         window.setChef = async (key, chefLetter, event) => {
             event.stopPropagation();
             if (!isEditMode) return;
             const currentData = planData[key] || {};
-            const currentMeal = typeof currentData === 'object' ? currentData.meal : currentData;
+            const currentMeal = (data && typeof data === 'object') ? data.meal : data;
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
             planData[key] = { meal: currentMeal || "---", chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
@@ -276,72 +261,57 @@
                 wrapper.appendChild(weekPage);
             }
             updateKWDisplay();
-            setupRealtimeSync();
+            // setupRealtimeSync wird jetzt erst NACH dem erfolgreichen Login in onAuthStateChanged aufgerufen
         }
         window.onload = init;
     </script>
     <style>
+        /* Unveränderte Styles aus deinem Original */
         :root { --primary: #160f8e; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         h1 { margin: 10px 0; font-size: 1.5rem; position: sticky; top: 0; background: var(--bg); width: 100%; text-align: center; z-index: 100; padding: 10px 0; }
-
         .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(18px); }
-
         .controls-wrapper { display: flex; align-items: center; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; width: fit-content; }
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
-
         .slider-container { width: 100%; max-width: 1200px; overflow: hidden; }
         .week-wrapper { display: flex; transition: transform 0.4s ease-in-out; }
         .week-page { min-width: 100%; box-sizing: border-box; }
         .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
-
         .day-card { background: white; padding: 10px; border-radius: 14px; min-height: 55px; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s; }
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
         .day-card.chef-h { background: #eff6ff; border-color: var(--hendrik); }
-
         .chef-selector { display: none; flex-direction: column; gap: 4px; position: absolute; left: 70px; top: 50%; transform: translateY(-50%); z-index: 5; }
         .edit-mode .chef-selector { display: flex; }
         .chef-selector button { border: none; width: 28px; height: 28px; border-radius: 6px; font-size: 0.9rem; font-weight: 900; color: white; cursor: pointer; }
         .btn-j { background: var(--julia); }
         .btn-h { background: var(--hendrik); }
-
         .day-info-col { display: flex; flex-direction: column; min-width: 70px; border-right: 1px solid #c8d1d9; padding-right: 8px; }
         .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
-
         .storage-section { width: 100%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 15px; }
-        
-        .meal-item { 
-            background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; 
-            display: flex; align-items: center; justify-content: center;
-        }
+        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; justify-content: center; min-height: 50px;}
         .meal-item:hover { background: #e0e7ff; }
         .edit-mode .meal-item:hover { background: var(--accent); color: white; }
         .edit-mode .day-card { cursor: pointer; }
         .day-card.active { border-color: var(--primary); }
-
-        /* Verstecke den Neu-Button wenn nicht im Bearbeitungsmodus */
         .add-meal-btn { display: none !important; }
         .edit-mode .add-meal-btn { display: flex !important; }
-
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
-
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: white; padding: 15px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         .recipe-box { text-align: left; margin-top: 15px; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
         textarea { width: 95%; min-height: 100px; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
-
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
     </style>
