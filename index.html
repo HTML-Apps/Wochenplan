@@ -21,11 +21,11 @@
         const db = getFirestore(app);
 
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischen saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten und Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße", "---", "Zusatz-Donnerstage allgemein: Pizza, Wraps, Tortellini, Ravioli, Bruschetta"];
+        const meals = ["Lachs mit Reis und Kaisergemüse", "Nudeln mit Blattspinat und Pinienkernen", "Reis mit Olivenöl und frischem saisonalem Gemüse", "Nudeln mit Gemüse in Tomatensoße", "Mexiko-Bowl mit Hackfleisch", "Süßkartoffelsuppe", "Kabeljau mit Reis und Zucchini-Tomatengemüse (Rosmarin/Thymian)", "Kartoffeln mit Spinat und Spiegelei", "Polenta mit Gemüse und Tomatensoße", "Herzhafte Pancackes (z.B. mit Kichererbsen, Tomaten und Spinat", "Hähnchen im Ofen nach Maxi mit Kartoffeln", "Gefüllte Paprikaschoten", "Thunfischsteaks, Nudeln und saisonales Gemüse", "Nudeln mit rotem Pesto und Brokkoli", "Bowl griechischer Salat mit Brot/Pitataschen", "Nudeln mit Tomatensoße und Salatbowl", "Steakstreifen mit Nudeln und Rohkost/Salat", "Linsensuppe", "Garnelen mit Nudeln und Weißweinsoße oder mit Olivenöl, Chili und Tomaten oder Reis als Kokos-Curry", "Gemüsesuppe mit Kartoffeln, Möhren und Zucchini", "Gnocchi mit Tomaten and Blattspinat", "Tacos mit Hackfleisch", "Thunfischnudeln", "Reis mit Süßkartoffeln, Tomaten, Kokosmilch oder Olivenöl", "Hähnchen mit Reis als Curry (Ananas oder Mango)", "Lachs mit Gemüsecurry und Reis (Kokossoße)", "Nudeln mit Hackfleischsoße", "Fisch/Fleisch Filet mit mediterranem Nudelsalat", "Burger mit Hackfleisch", "Nudeln-Hähnchenpfanne asiatischer Art (Fenchel, Zitronensaft, Olivenöl, Ingwe und Sojasoße", "---", "Zusatz-Donnerstage allgemein: Pizza, Wraps, Tortellini, Ravioli, Bruschetta"];
 
         let currentWeekIndex = 0;
         let selectedDayKey = null;
-        let isEditMode = false; // Startet deaktiviert
+        let isEditMode = false;
         let planData = {};
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
@@ -55,7 +55,20 @@
                     planData = ds.data();
                     Object.keys(planData).forEach(key => {
                         const el = document.getElementById(`text-${key}`);
-                        if (el) el.innerText = planData[key];
+                        const card = document.getElementById(`card-${key}`);
+                        if (el) {
+                            // Falls es ein Objekt ist (neu), nimm .meal, sonst den String
+                            const data = planData[key];
+                            const mealText = typeof data === 'object' ? data.meal : data;
+                            const chef = typeof data === 'object' ? data.chef : null;
+                            
+                            el.innerText = mealText || "---";
+                            
+                            // Koch-Status an Card-Klasse binden
+                            card.classList.remove('chef-j', 'chef-h');
+                            if (chef === 'J') card.classList.add('chef-j');
+                            if (chef === 'H') card.classList.add('chef-h');
+                        }
                     });
                 }
             });
@@ -63,7 +76,22 @@
 
         window.assignMeal = async (meal) => {
             if (!selectedDayKey || !isEditMode) return;
-            planData[selectedDayKey] = meal;
+            const currentData = planData[selectedDayKey] || {};
+            const chef = typeof currentData === 'object' ? currentData.chef : null;
+            
+            planData[selectedDayKey] = { meal: meal, chef: chef };
+            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+        };
+
+        window.setChef = async (key, chefLetter, event) => {
+            event.stopPropagation(); // Verhindert, dass die Karte selektiert wird
+            if (!isEditMode) return;
+            
+            const currentData = planData[key] || {};
+            const currentMeal = typeof currentData === 'object' ? currentData.meal : currentData;
+            const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
+
+            planData[key] = { meal: currentMeal || "---", chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
 
@@ -75,108 +103,71 @@
         };
 
         window.archiveCurrentWeek = async () => {
-            const currentKWLabel = kwLabels[currentWeekIndex]; // Z.B. "KW 03"
+            const currentKWLabel = kwLabels[currentWeekIndex];
             if (!confirm(`${currentKWLabel} in der Historie speichern?`)) return;
-        
             let summary = "";
             let hasData = false;
-            
-            // Dein funktionierender Teil zur Datengewinnung
             const kwNum = parseInt(currentKWLabel.split(' ').pop());
             const kwWithNull = currentKWLabel.replace(" ", ""); 
-        
+
             daysFull.forEach(day => {
                 const idVariante1 = `2026-KW${kwNum}-${day}`;
                 const idVariante2 = `2026-${kwWithNull}-${day}`;
                 const el = document.getElementById(`text-${idVariante1}`) || document.getElementById(`text-${idVariante2}`);
+                const card = document.getElementById(`card-${idVariante1}`) || document.getElementById(`card-${idVariante2}`);
                 
                 if (el) {
                     const mealText = el.innerText.trim();
+                    let chefSuffix = "";
+                    if (card.classList.contains('chef-j')) chefSuffix = " (J)";
+                    if (card.classList.contains('chef-h')) chefSuffix = " (H)";
+
                     if (mealText !== "---" && mealText !== "") {
-                        summary += `<b>${day}:</b> ${mealText}<br>`;
+                        summary += `<b>${day}:</b> ${mealText}${chefSuffix}<br>`;
                         hasData = true;
                     } else {
                         summary += `<b>${day}:</b> --- <br>`;
                     }
                 }
             });
-        
-            if (!hasData) {
-                alert("Diese Woche enthält noch keine Planung (nur '---')!");
-                return;
-            }
-        
+
+            if (!hasData) { alert("Keine Planung vorhanden!"); return; }
+
             try {
                 const archivRef = doc(db, "historie", "archiv");
-                
-                // 1. Bestehende Historie abrufen
                 const ds = await getDoc(archivRef);
-                let eintraege = [];
-                if (ds.exists()) {
-                    eintraege = ds.data().eintraege || [];
-                }
-        
-                // 2. WICHTIG: Den alten Eintrag für DIESE Woche entfernen (Filter)
-                // Das verhindert die Doppelung, falls die KW schon drin ist
+                let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
                 const bereinigteListe = eintraege.filter(e => e.woche !== currentKWLabel);
-        
-                // 3. Den neuen Eintrag vorbereiten
-                const neuerEintrag = {
+                bereinigteListe.push({
                     woche: currentKWLabel,
                     text: summary,
                     timestamp: Date.now(),
                     date: new Date().toLocaleString('de-DE')
-                };
-        
-                // 4. Den neuen Eintrag zur bereinigten Liste hinzufügen
-                bereinigteListe.push(neuerEintrag);
-        
-                // 5. Die komplette Liste neu in Firebase speichern (ohne arrayUnion)
-                await setDoc(archivRef, {
-                    eintraege: bereinigteListe
                 });
-        
-                alert(`${currentKWLabel} wurde archiviert (und bestehende Version aktualisiert)!`);
-            } catch (e) {
-                console.error("Archiv-Fehler:", e);
-                alert("Fehler beim Speichern.");
-            }
+                await setDoc(archivRef, { eintraege: bereinigteListe });
+                alert(`${currentKWLabel} archiviert!`);
+            } catch (e) { console.error(e); alert("Fehler beim Speichern."); }
         };
-        
+
         window.showHistory = async () => {
             const modal = document.getElementById('historyModal');
             const content = document.getElementById('historyContent');
             content.innerHTML = "Lade Historie...";
             modal.style.display = "flex";
-        
             try {
                 const ds = await getDoc(doc(db, "historie", "archiv"));
                 if (ds.exists()) {
                     let list = ds.data().eintraege || [];
-                    
-                    // Sortieren nach Zeitstempel (Neueste oben)
                     list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        
-                    if (list.length === 0) {
-                        content.innerHTML = "Noch keine Einträge vorhanden.";
-                        return;
-                    }
-        
                     content.innerHTML = list.map(e => `
-                        <div style="margin-bottom:20px; border-bottom:2px solid #f1f5f9; padding-bottom:10px; background: #fafafa; padding: 10px; border-radius: 10px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                                <span style="color:var(--primary); font-weight:800; font-size:1.1rem;">${e.woche}</span>
-                                <small style="color:#94a3b8;">${e.date}</small>
+                        <div style="margin-bottom:15px; border-bottom:1px solid #eee; padding:10px; background:#f8fafc; border-radius:10px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <strong>${e.woche}</strong><small>${e.date}</small>
                             </div>
-                            <div style="color:#334155; line-height:1.4;">${e.text}</div>
-                        </div>
-                    `).join('');
-                } else {
-                    content.innerHTML = "Keine Historie gefunden.";
+                            <div style="font-size:0.85rem;">${e.text}</div>
+                        </div>`).join('');
                 }
-            } catch (e) {
-                content.innerHTML = "Fehler beim Laden der Historie.";
-            }
+            } catch (e) { content.innerHTML = "Fehler."; }
         };
 
         function init() {
@@ -188,7 +179,6 @@
                 monday.setDate(baseDate.getDate() + (w * 7));
                 const kw = 3 + w; 
                 kwLabels.push(`KW ${kw.toString().padStart(2, '0')}`);
-                
                 const grid = document.createElement('div');
                 grid.className = 'week-grid';
                 daysFull.forEach((day, i) => {
@@ -197,6 +187,10 @@
                     const key = `2026-KW${kw}-${day}`;
                     grid.innerHTML += `
                     <div class="day-card" id="card-${key}" onclick="selectDay('${key}')">
+                        <div class="chef-selector">
+                            <button onclick="setChef('${key}', 'J', event)" class="btn-j">J</button>
+                            <button onclick="setChef('${key}', 'H', event)" class="btn-h">H</button>
+                        </div>
                         <div class="day-info-col">
                             <div class="day-name">${day}</div>
                             <div class="day-date">${ds}</div>
@@ -218,15 +212,23 @@
         window.onload = init;
     </script>
     <style>
-        :root { --primary: #4f46e5; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; }
+        :root { --primary: #4f46e5; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         
-        h1 { margin: 10px 0; font-size: 1.5rem; } /* Überschrift optimiert */
+        h1 { margin: 10px 0; font-size: 1.5rem; position: sticky; top: 0; background: var(--bg); width: 100%; text-align: center; z-index: 100; padding: 10px 0; }
+
+        /* MODERNER SWITCH */
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); }
 
         .controls-wrapper { 
             display: flex; align-items: center; gap: 15px; background: white; 
             padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; width: fit-content;
+            margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; width: fit-content;
         }
         
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -235,97 +237,59 @@
         .slider-container { width: 100%; max-width: 1200px; overflow: hidden; }
         .week-wrapper { display: flex; transition: transform 0.4s ease-in-out; }
         .week-page { min-width: 100%; box-sizing: border-box; }
-        
-        .week-grid { 
-            display: grid; 
-            grid-template-columns: repeat(7, 1fr); 
-            gap: 10px; 
-            width: 100%;
-        }
+        .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
 
         .day-card { 
-            background: white; padding: 10px; border-radius: 14px; 
-            min-height: 100px; border: 2px solid transparent; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-align: left;
+            background: white; padding: 10px; border-radius: 14px; min-height: 70px; border: 2px solid transparent; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s;
         }
 
-        .day-info-col {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-width: 65px;
-            border-right: 1px solid #f1f5f9;
-            padding-right: 8px;
-        }
+        /* Koch-Styles */
+        .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
+        .day-card.chef-h { background: #eff6ff; border-color: var(--hendrik); }
 
-        .meal-col {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
+        .chef-selector { display: none; flex-direction: column; gap: 4px; position: absolute; left: 70px; top: 50%; transform: translateY(-50%); z-index: 5; }
+        .edit-mode .chef-selector { display: flex; }
+        .chef-selector button { border: none; width: 28px; height: 28px; border-radius: 6px; font-size: 0.9rem; font-weight: 900; color: white; cursor: pointer; }
+        .btn-j { background: var(--julia); }
+        .btn-h { background: var(--hendrik); }
 
-        /* Nur im Edit-Mode Interaktion erlauben */
+        .day-info-col { display: flex; flex-direction: column; min-width: 65px; border-right: 1px solid #f1f5f9; padding-right: 8px; }
+        .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
+
         .edit-mode .day-card { cursor: pointer; }
-        .day-card.active { border-color: var(--primary); background: #eef2ff; }
-        
-        .day-name { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px; }
+        .day-card.active { border-color: var(--primary); box-shadow: 0 0 10px rgba(79, 70, 229, 0.2); }
+        .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
-        
-        .selected-meal { 
-            font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2;
-            word-wrap: break-word; overflow-wrap: break-word; hyphens: auto;
-        }
+        .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
 
-        .storage-section { width: 100%; max-width: 1200px; background: white; padding: 20px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
-        /* Im normalen Modus Speisekammer ausgrauen/verstecken falls gewünscht, hier bleibt sie sichtbar aber nicht klickbar */
+        .storage-section { width: 100%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 15px; }
         .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; }
         .meal-item:hover { background: var(--accent); color: white; }
 
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
-        .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 0.9rem; }
+        .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
 
-         #historyModal { 
-            position: fixed; 
-            top: 0; left: 0; 
-            width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.6); 
-            display: none; 
-            justify-content: center; 
-            align-items: center; 
-            z-index: 1000; 
-        }
-        
-        .modal-box { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 20px; 
-            width: 90%;          /* Nimmt 90% der Bildschirmbreite ein */
-            max-width: 500px;    /* Aber nie mehr als 500px */
-            max-height: 85vh; 
-            overflow-y: auto; 
-            box-sizing: border-box; /* WICHTIG: Padding wird in die Breite eingerechnet */
-            position: relative;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
+        #historyModal { position: fixed; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: white; padding: 10px; border-radius: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; position: relative; }
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } .day-card { min-height: 70px; } .day-info-col { min-width: 70px; } }
+        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } .day-card { margin-left: 0px; } }
     </style>
 </head>
-<body class=""> <h1>Wochenplaner</h1>
+<body> 
+    <h1>Wochenplaner</h1>
     <div class="controls-wrapper">
         <button class="nav-btn" onclick="moveSlider(-1)" id="prevBtn">❮</button>
         <div class="kw-display" id="kwDisplay">...</div>
         <button class="nav-btn" onclick="moveSlider(1)" id="nextBtn">❯</button>
-        <div style="margin-left:5px; border-left:1px solid #eee; padding-left:10px; display:flex; align-items:center; gap:5px;">
-            <input type="checkbox" id="editToggle" onchange="toggleEditMode()"> <small>Bearbeiten</small>
+        <div style="margin-left:5px; border-left:1px solid #eee; padding-left:15px; display:flex; align-items:center; gap:8px;">
+            <label class="switch">
+                <input type="checkbox" id="editToggle" onchange="toggleEditMode()">
+                <span class="slider"></span>
+            </label>
+            <small style="font-weight:600; color:#64748b">Edit</small>
         </div>
     </div>
     <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
