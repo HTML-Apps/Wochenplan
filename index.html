@@ -177,7 +177,7 @@
                     document.getElementById('editZubereitung').value = data.zubereitung || "";
                 } else {
                     document.getElementById('viewZutaten').innerHTML = "<li>Noch keine Zutaten.</li>";
-                    document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
+                    document.getElementById('viewZubereitung').innerText = "<li>Noch keine Zubereitung.</li>";
                     document.getElementById('editZubereitung').value = "";
                     window.addZutatRow(); 
                 }
@@ -443,7 +443,7 @@
         /* ZUTATEN EDITOR STYLES */
         .zutat-row { display: flex; gap: 5px; margin-bottom: 5px; }
         .zutat-row input { padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; }
-        .z-menge { width: 70px; }
+        .z-menge { width: 50px; }
         .z-einheit { width: 30px; }
         .z-name { flex: 1; }
         .z-del { background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; width: 34px; cursor: pointer; font-weight: bold; }
