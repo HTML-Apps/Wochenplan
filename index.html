@@ -32,10 +32,11 @@
             const appSection = document.getElementById('appSection');
 
             if (user) {
-                console.log("Eingeloggt als:", user.email);
                 loginSection.style.display = "none";
                 appSection.style.display = "block";
-                setupRealtimeSync(); // Startet die Daten-Synchronisation
+                
+                // WICHTIG: Erst hier darf die Synchronisation starten!
+                setupRealtimeSync(); 
             } else {
                 loginSection.style.display = "flex";
                 appSection.style.display = "none";
