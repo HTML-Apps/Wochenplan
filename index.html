@@ -176,8 +176,8 @@
                     document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
                     document.getElementById('editZubereitung').value = data.zubereitung || "";
                 } else {
-                    document.getElementById('viewZutaten').innerHTML = "<li>Noch keine Zutaten.</li>";
-                    document.getElementById('viewZubereitung').innerText = "<li>Noch keine Zubereitung.</li>";
+                    document.getElementById('viewZutaten').innerHTML = "Noch keine Zutaten.";
+                    document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
                     document.getElementById('editZubereitung').value = "";
                     window.addZutatRow(); 
                 }
@@ -513,7 +513,7 @@
                 </div>
                 <div style="display:flex; gap:10px; margin-top:20px;">
                     <button class="btn-hist" style="background:#ef4444" onclick="window.cancelEdit()">Abbrechen</button>
-                    <button class="btn-hist" style="background:var(--accent)" onclick="window.saveRecipe()">Speichern</button>
+                    <button class="btn-hist" style="background:#160f8e" onclick="window.saveRecipe()">Speichern</button>
                 </div>
             </div>
         </div>
