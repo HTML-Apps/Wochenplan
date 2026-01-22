@@ -48,6 +48,8 @@
             });
         };
 
+        // ... (Firebase Konfiguration und Auth bleiben gleich wie in deinem Upload)
+
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
         let currentWeekIndex = 0;
         let selectedDayKey = null;
@@ -86,30 +88,35 @@
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
-                    
-                    // Zähle Häufigkeiten der Gerichte
                     const counts = {};
+
+                    // Alle Einträge im Plan durchlaufen
                     Object.keys(planData).forEach(key => {
                         const data = planData[key];
+                        // WICHTIG: Funktioniert für Strings und Objekte gleichermaßen
                         const mealName = (data && typeof data === 'object') ? data.meal : data;
+                        
+                        // Zählen für die Heatmap
                         if (mealName && mealName !== "---") {
                             counts[mealName] = (counts[mealName] || 0) + 1;
                         }
                         
-                        // Bestehende UI-Aktualisierung der Kalender-Karten
+                        // UI im Kalender aktualisieren
                         const el = document.getElementById(`text-${key}`);
                         const card = document.getElementById(`card-${key}`);
                         if (el) {
+                            el.innerText = mealName || "---"; // Text immer setzen
+                            
+                            // Koch-Logik (Farben J/H)
                             const chef = (data && typeof data === 'object') ? data.chef : null;
-                            el.innerText = mealName || "---";
                             card.classList.remove('chef-j', 'chef-h');
                             if (chef === 'J') card.classList.add('chef-j');
                             if (chef === 'H') card.classList.add('chef-h');
                         }
                     });
                     
-                    // Farben in der Speisekammer aktualisieren
-                    updateStorageHeatmap(counts);
+                    // Heatmap Farben in der Speisekammer neu berechnen
+                    renderStorage(counts);
                 }
             });
 
@@ -119,9 +126,8 @@
                 snapshot.forEach((doc) => {
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
-                // Erneutes Rendern der Speisekammer (nutzt die aktuellen planData Counts)
-                const counts = calculateCounts(); 
-                renderStorage(counts);
+                // Initiales Rendern mit aktuellen Zählwerten
+                renderStorage(calculateCounts());
             });
         }
 
@@ -135,25 +141,28 @@
             return counts;
         }
 
-        // Hilfsfunktion: Bestimmt die CSS Klasse basierend auf der Anzahl
         function getHeatClass(count) {
-            if (!count || count <= 1) return 'heat-low';
-            if (count === 2) return 'heat-medium';
-            return 'heat-high';
+            if (!count || count <= 1) return 'heat-low';    // Grün
+            if (count === 2) return 'heat-medium';         // Gelb
+            return 'heat-high';                             // Rot
         }
 
         function renderStorage(counts) {
             const storageEl = document.getElementById('mealStorage');
+            if (!storageEl) return;
             storageEl.innerHTML = "";
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
                 const heatClass = getHeatClass(count);
-                storageEl.innerHTML += `<div class="meal-item ${heatClass}" onclick="handleMealClick('${item.id}', '${item.name}')">
-                    ${item.name} ${count > 0 ? '('+count+')' : ''}
-                </div>`;
+                storageEl.innerHTML += `
+                    <div class="meal-item ${heatClass}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                        ${item.name} ${count > 0 ? `<small style="margin-left:5px; opacity:0.6;">(${count})</small>` : ''}
+                    </div>`;
             });
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999;">+ Neu</div>`;
         }
+
+        // ... (Restliche Funktionen: addNewMeal, handleMealClick, assignMeal, Rezepte, Einkaufsliste etc. wie bisher)
 
         // Funktion zum schnellen Update der Farben ohne komplettes Re-Rendering
         function updateStorageHeatmap(counts) {
