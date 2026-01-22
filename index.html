@@ -84,38 +84,47 @@
         }
 
         function setupRealtimeSync() {
-            // 1. Wochenplan Sync & Heat-Map Berechnung
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
                     const counts = {};
 
-                    // Alle Einträge im Plan durchlaufen
                     Object.keys(planData).forEach(key => {
                         const data = planData[key];
-                        // WICHTIG: Funktioniert für Strings und Objekte gleichermaßen
-                        const mealName = (data && typeof data === 'object') ? data.meal : data;
                         
-                        // Zählen für die Heatmap
+                        // Extrahiere den Namen (egal ob String oder Objekt)
+                        let mealName = "---";
+                        let chef = null;
+
+                        if (data) {
+                            if (typeof data === 'object') {
+                                mealName = data.meal || "---";
+                                chef = data.chef;
+                            } else {
+                                mealName = data; // Fallback für alte String-Einträge
+                            }
+                        }
+                        
+                        // Zählen für Heatmap
                         if (mealName && mealName !== "---") {
                             counts[mealName] = (counts[mealName] || 0) + 1;
                         }
                         
-                        // UI im Kalender aktualisieren
+                        // UI AKTUALISIERUNG:
                         const el = document.getElementById(`text-${key}`);
                         const card = document.getElementById(`card-${key}`);
+                        
                         if (el) {
-                            el.innerText = mealName || "---"; // Text immer setzen
-                            
-                            // Koch-Logik (Farben J/H)
-                            const chef = (data && typeof data === 'object') ? data.chef : null;
+                            el.innerText = mealName; // Setzt den Text SOFORT
+                        }
+                        
+                        if (card) {
                             card.classList.remove('chef-j', 'chef-h');
                             if (chef === 'J') card.classList.add('chef-j');
                             if (chef === 'H') card.classList.add('chef-h');
                         }
                     });
                     
-                    // Heatmap Farben in der Speisekammer neu berechnen
                     renderStorage(counts);
                 }
             });
@@ -187,9 +196,23 @@
 
         window.assignMeal = async (mealName) => {
             if (!selectedDayKey || !isEditMode) return;
-            const currentData = planData[selectedDayKey] || {};
-            const chef = typeof currentData === 'object' ? currentData.chef : null;
-            planData[selectedDayKey] = { meal: mealName, chef: chef };
+            
+            // Wir holen uns den aktuellen Status (falls schon ein Koch existiert)
+            const currentData = planData[selectedDayKey];
+            let currentChef = null;
+            
+            if (currentData && typeof currentData === 'object') {
+                currentChef = currentData.chef;
+            }
+
+            // Wir speichern das Gericht UND den Koch-Status (auch wenn dieser null ist)
+            // Damit ist sichergestellt, dass immer ein konsistentes Objekt in Firebase liegt
+            const updatedEntry = { 
+                meal: mealName, 
+                chef: currentChef || null 
+            };
+            
+            planData[selectedDayKey] = updatedEntry;
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
         };
 
