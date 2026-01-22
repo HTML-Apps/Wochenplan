@@ -128,31 +128,32 @@
             });
         }
 
-        // Hilfsfunktion: Zählt Gerichte im aktuellen planData Objekt
         function calculateCounts() {
             const counts = {};
             Object.values(planData).forEach(val => {
                 const name = (val && typeof val === 'object') ? val.meal : val;
-                if (name && name !== "---") counts[name] = (counts[name] || 0) + 1;
+                // WICHTIG: "---" wird hier explizit ignoriert
+                if (name && name !== "---") {
+                    counts[name] = (counts[name] || 0) + 1;
+                }
             });
             return counts;
         }
 
         // Berechnet einen HSL-Farbwert basierend auf der relativen Position im Min-Max-Bereich
-        function getHeatStyle(count, min, max) {
-            if (count === 0) return "background-color: #f0fdf4; border-color: #bbf7d0;"; // Sehr helles Grün für 0
+        function getHeatStyle(count, min, max, mealName) {
+            // Neutrales Design für den Platzhalter
+            if (mealName === "---") {
+                return "background-color: #ffffff; border-color: #e2e8f0; color: #94a3b8;";
+            }
 
-            // Wenn alle Gerichte gleich oft vorkommen, neutrales Grün/Gelb
+            if (count === 0) return "background-color: #f0fdf4; border-color: #bbf7d0;";
+
             if (max === min) return "background-color: #fef9c3; border-color: #fde047;";
 
-            // Normalisierung des Wertes auf eine Skala von 0 bis 1
             const ratio = (count - min) / (max - min);
-
-            // Farbton (Hue): 120 (Grün) -> 0 (Rot)
-            // Wir nehmen 100 statt 120, damit das Grün nicht zu stechend ist
             const hue = 100 - (ratio * 100); 
             
-            // Sättigung 80%, Helligkeit 90% für sanfte Pastelltöne
             const bg = `hsl(${hue}, 80%, 92%)`;
             const border = `hsl(${hue}, 70%, 75%)`;
 
@@ -163,27 +164,36 @@
             const storageEl = document.getElementById('mealStorage');
             if (!storageEl) return;
 
-            // Ermittle Min und Max (nur von Gerichten, die mindestens 1x vorkommen, 
-            // oder 0 als Basis für einen sauberen Verlauf)
-            const countValues = speisekammerData.map(item => counts[item.name] || 0);
-            const minCount = Math.min(...countValues);
-            const maxCount = Math.max(...countValues);
+            // Wir filtern "---" aus der Min/Max Berechnung heraus, damit die Skala für echte Gerichte stimmt
+            const countValues = speisekammerData
+                .filter(item => item.name !== "---")
+                .map(item => counts[item.name] || 0);
+            
+            const minCount = countValues.length > 0 ? Math.min(...countValues) : 0;
+            const maxCount = countValues.length > 0 ? Math.max(...countValues) : 0;
 
             storageEl.innerHTML = "";
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
                 
-                // Dynamischen Style berechnen
-                const dynamicStyle = getHeatStyle(count, minCount, maxCount);
+                // Name wird jetzt mit übergeben
+                const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
+                
+                // Untertitel Logik für "---" vs echte Gerichte
+                let subtitle = "";
+                if (item.name === "---") {
+                    subtitle = "Platzhalter";
+                } else {
+                    subtitle = count > 0 ? `${count}x geplant` : 'neu';
+                }
                 
                 storageEl.innerHTML += `
                     <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
-                        ${count > 0 ? `<small style="margin-top:2px; opacity:0.7; font-size:0.65rem;">${count}x geplant</small>` : '<small style="margin-top:2px; opacity:0.4; font-size:0.65rem;">neu</small>'}
+                        <small style="margin-top:2px; opacity:0.7; font-size:0.65rem;">${subtitle}</small>
                     </div>`;
             });
             
-            // Der "Neu"-Button bleibt im Standard-Design
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
         }
 
