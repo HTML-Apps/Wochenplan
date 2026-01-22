@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -81,36 +82,82 @@
         }
 
         function setupRealtimeSync() {
+            // 1. Wochenplan Sync & Heat-Map Berechnung
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
+                    
+                    // Zähle Häufigkeiten der Gerichte
+                    const counts = {};
                     Object.keys(planData).forEach(key => {
+                        const data = planData[key];
+                        const mealName = (data && typeof data === 'object') ? data.meal : data;
+                        if (mealName && mealName !== "---") {
+                            counts[mealName] = (counts[mealName] || 0) + 1;
+                        }
+                        
+                        // Bestehende UI-Aktualisierung der Kalender-Karten
                         const el = document.getElementById(`text-${key}`);
                         const card = document.getElementById(`card-${key}`);
                         if (el) {
-                            const data = planData[key];
-                            const mealText = (data && typeof data === 'object') ? data.meal : data;
                             const chef = (data && typeof data === 'object') ? data.chef : null;
-                            el.innerText = mealText || "---";
+                            el.innerText = mealName || "---";
                             card.classList.remove('chef-j', 'chef-h');
                             if (chef === 'J') card.classList.add('chef-j');
                             if (chef === 'H') card.classList.add('chef-h');
                         }
                     });
+                    
+                    // Farben in der Speisekammer aktualisieren
+                    updateStorageHeatmap(counts);
                 }
             });
 
+            // 2. Speisekammer Sync
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
-                const storageEl = document.getElementById('mealStorage');
-                storageEl.innerHTML = "";
                 speisekammerData = [];
                 snapshot.forEach((doc) => {
-                    const item = { id: doc.id, ...doc.data() };
-                    speisekammerData.push(item);
-                    storageEl.innerHTML += `<div class="meal-item" onclick="handleMealClick('${item.id}', '${item.name}')">${item.name}</div>`;
+                    speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
-                storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999;">+ Neu</div>`;
+                // Erneutes Rendern der Speisekammer (nutzt die aktuellen planData Counts)
+                const counts = calculateCounts(); 
+                renderStorage(counts);
             });
+        }
+
+        // Hilfsfunktion: Zählt Gerichte im aktuellen planData Objekt
+        function calculateCounts() {
+            const counts = {};
+            Object.values(planData).forEach(val => {
+                const name = (val && typeof val === 'object') ? val.meal : val;
+                if (name && name !== "---") counts[name] = (counts[name] || 0) + 1;
+            });
+            return counts;
+        }
+
+        // Hilfsfunktion: Bestimmt die CSS Klasse basierend auf der Anzahl
+        function getHeatClass(count) {
+            if (!count || count <= 1) return 'heat-low';
+            if (count === 2) return 'heat-medium';
+            return 'heat-high';
+        }
+
+        function renderStorage(counts) {
+            const storageEl = document.getElementById('mealStorage');
+            storageEl.innerHTML = "";
+            speisekammerData.forEach((item) => {
+                const count = counts[item.name] || 0;
+                const heatClass = getHeatClass(count);
+                storageEl.innerHTML += `<div class="meal-item ${heatClass}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                    ${item.name} ${count > 0 ? '('+count+')' : ''}
+                </div>`;
+            });
+            storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999;">+ Neu</div>`;
+        }
+
+        // Funktion zum schnellen Update der Farben ohne komplettes Re-Rendering
+        function updateStorageHeatmap(counts) {
+            renderStorage(counts); 
         }
 
         window.addNewMeal = async () => {
@@ -453,6 +500,11 @@
         /* SHOPPING LIST STYLES */
         .shop-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
         .shop-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+
+        /* Heat-Map Farben für Speisekammer-Items */
+        .heat-low { background-color: #dcfce7 !important; border-color: #86efac !important; }    /* Grün: Selten */
+        .heat-medium { background-color: #fef9c3 !important; border-color: #fde047 !important; } /* Gelb: Mittel */
+        .heat-high { background-color: #fee2e2 !important; border-color: #fca5a5 !important; }    /* Rot: Oft */
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
