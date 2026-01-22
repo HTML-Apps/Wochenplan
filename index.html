@@ -138,25 +138,33 @@
             return counts;
         }
 
-        // NEU: Dynamische Klassenberechnung basierend auf Min/Max
-        function getHeatClass(count, min, max) {
-            if (count === 0) return 'heat-low'; // Nie gekocht ist immer grün
-            if (max === min) return 'heat-low'; // Alle gleich oft gekocht
-            
-            const range = max - min;
-            const firstThreshold = min + (range / 3);
-            const secondThreshold = min + (range * 2 / 3);
+        // Berechnet einen HSL-Farbwert basierend auf der relativen Position im Min-Max-Bereich
+        function getHeatStyle(count, min, max) {
+            if (count === 0) return "background-color: #f0fdf4; border-color: #bbf7d0;"; // Sehr helles Grün für 0
 
-            if (count <= firstThreshold) return 'heat-low';
-            if (count <= secondThreshold) return 'heat-medium';
-            return 'heat-high';
+            // Wenn alle Gerichte gleich oft vorkommen, neutrales Grün/Gelb
+            if (max === min) return "background-color: #fef9c3; border-color: #fde047;";
+
+            // Normalisierung des Wertes auf eine Skala von 0 bis 1
+            const ratio = (count - min) / (max - min);
+
+            // Farbton (Hue): 120 (Grün) -> 0 (Rot)
+            // Wir nehmen 100 statt 120, damit das Grün nicht zu stechend ist
+            const hue = 100 - (ratio * 100); 
+            
+            // Sättigung 80%, Helligkeit 90% für sanfte Pastelltöne
+            const bg = `hsl(${hue}, 80%, 92%)`;
+            const border = `hsl(${hue}, 70%, 75%)`;
+
+            return `background-color: ${bg}; border-color: ${border};`;
         }
 
         function renderStorage(counts) {
             const storageEl = document.getElementById('mealStorage');
             if (!storageEl) return;
 
-            // Ermittle Min und Max aus allen vorhandenen Gerichten
+            // Ermittle Min und Max (nur von Gerichten, die mindestens 1x vorkommen, 
+            // oder 0 als Basis für einen sauberen Verlauf)
             const countValues = speisekammerData.map(item => counts[item.name] || 0);
             const minCount = Math.min(...countValues);
             const maxCount = Math.max(...countValues);
@@ -164,18 +172,20 @@
             storageEl.innerHTML = "";
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
-                // Übergebe min/max an die Farbfunktion
-                const heatClass = getHeatClass(count, minCount, maxCount);
+                
+                // Dynamischen Style berechnen
+                const dynamicStyle = getHeatStyle(count, minCount, maxCount);
                 
                 storageEl.innerHTML += `
-                    <div class="meal-item ${heatClass}" onclick="handleMealClick('${item.id}', '${item.name}')">
-                        ${item.name} ${count > 0 ? `<small style="margin-left:5px; opacity:0.6;">(${count})</small>` : ''}
+                    <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                        <span style="display:block; width:100%">${item.name}</span>
+                        ${count > 0 ? `<small style="margin-top:2px; opacity:0.7; font-size:0.65rem;">${count}x geplant</small>` : '<small style="margin-top:2px; opacity:0.4; font-size:0.65rem;">neu</small>'}
                     </div>`;
             });
-            storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999;">+ Neu</div>`;
+            
+            // Der "Neu"-Button bleibt im Standard-Design
+            storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
         }
-
-        // ... (Restliche Funktionen: addNewMeal, handleMealClick, assignMeal, Rezepte, Einkaufsliste etc. wie bisher)
 
         // Funktion zum schnellen Update der Farben ohne komplettes Re-Rendering
         function updateStorageHeatmap(counts) {
@@ -538,9 +548,21 @@
         .shop-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
 
         /* Heat-Map Farben für Speisekammer-Items */
-        .heat-low { background-color: #dcfce7 !important; border-color: #86efac !important; }    /* Grün: Selten */
-        .heat-medium { background-color: #fef9c3 !important; border-color: #fde047 !important; } /* Gelb: Mittel */
-        .heat-high { background-color: #fee2e2 !important; border-color: #fca5a5 !important; }    /* Rot: Oft */
+        .meal-item { 
+            background: #f8fafc; 
+            padding: 10px; 
+            border-radius: 10px; 
+            text-align: center; 
+            cursor: pointer; 
+            border: 2px solid transparent; /* Rahmen für die Farbe nutzen */
+            font-size: 0.8rem; 
+            font-weight: 500; 
+            display: flex; 
+            flex-direction: column; /* Text und Zahl untereinander */
+            align-items: center; 
+            justify-content: center;
+            transition: transform 0.2s;
+        }
 
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
