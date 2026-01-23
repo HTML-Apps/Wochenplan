@@ -529,6 +529,35 @@
             return index;
         }
 
+        // Hilfsfunktion zum Aufbereiten des Textes
+        function getFormattedList() {
+            const currentKW = document.getElementById('shopTitle').innerText;
+            const items = Array.from(document.querySelectorAll('.shop-item')).map(item => {
+                const text = item.querySelector('span').innerText.replace(/\s+/g, ' ').trim();
+                const isChecked = item.querySelector('input').checked;
+                return `${isChecked ? '[x]' : '[ ]'} ${text}`;
+            });
+            return `${currentKW}\n\n${items.join('\n')}`;
+        }
+
+        window.copyToClipboard = async () => {
+            const text = getFormattedList();
+            try {
+                await navigator.clipboard.writeText(text);
+                alert("Liste in die Zwischenablage kopiert!");
+            } catch (err) {
+                alert("Fehler beim Kopieren.");
+            }
+        };
+
+        window.exportToKeep = () => {
+            const text = encodeURIComponent(getFormattedList());
+            // Öffnet Google Keep mit dem Text in einer neuen Notiz (via URL Parameter)
+            // Hinweis: Keep übernimmt den Text am besten via "Share"-Intent auf Mobilgeräten
+            // Auf dem Desktop ist die Zwischenablage + manuelles Einfügen zuverlässiger.
+            window.open(`https://keep.google.com/#create/text=${text}`, '_blank');
+        };
+
         function init() {
             const wrapper = document.getElementById('weekWrapper');
             for (let w = 0; w < 52; w++) {
@@ -720,6 +749,8 @@
             <button class="btn-hist" onclick="window.generateShoppingList()" style="margin-bottom:15px; font-size:0.8rem;">Neu aus Plan generieren</button>
             <div id="shoppingListContent"></div>
             <button class="btn-hist" style="background:#64748b; margin-top:20px;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
+            <button class="btn-hist" onclick="window.copyToClipboard()" style="font-size: 0.8rem; background: #10b981;">📋 Kopieren</button>
+            <button class="btn-hist" onclick="window.exportToKeep()" style="font-size: 0.8rem; background: #f59e0b;">📝 In Keep öffnen</button>
         </div>
     </div>
 
