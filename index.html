@@ -168,7 +168,7 @@
             // 1. Zähler in Überschrift
             const totalMeals = speisekammerData.length;
             const storageHeader = document.querySelector('.storage-section h3');
-            if (storageHeader) storageHeader.innerText = `🍴 Menüplan (${totalMeals} Gerichte)`;
+            if (storageHeader) storageHeader.innerText = `🍴 Menüplan (${totalMeals-1} Gerichte)`;
 
             let lastCookedTimestamp = {};
             const now = new Date();
@@ -226,20 +226,26 @@
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
-                let subtitle = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
-                let lastInfo = "";
+                // Basis-Status
+                let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
+                
+                // Relative Zeitberechnung (wie zuvor)
+                let timeLabel = "";
                 if (lastCookedTimestamp[item.name]) {
                     const diffDays = Math.floor((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
-                    let timeLabel = diffDays < 7 ? `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}` : `vor ${Math.floor(diffDays / 7)} Woche${Math.floor(diffDays / 7) > 1 ? 'n' : ''}`;
-                    lastInfo = `<div style="opacity:0.6; font-size:0.6rem; margin-top:2px;">Zuletzt: ${timeLabel}</div>`;
+                    timeLabel = diffDays < 7 ? `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}` : `vor ${Math.floor(diffDays / 7)} Woche${Math.floor(diffDays / 7) > 1 ? 'n' : ''}`;
                 }
-                
+
+                // Zusammensetzen der Unterzeile
+                const fullSubtitle = timeLabel ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
+
                 storageEl.innerHTML += `
                     <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
-                        <small style="margin-top:2px; opacity:0.7; font-size:0.65rem;">${subtitle}</small>
-                        ${lastInfo}
+                        <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${fullSubtitle}
+                        </small>
                     </div>`;
             });
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
