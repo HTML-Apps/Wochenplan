@@ -638,26 +638,28 @@
         .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
         .day-card { background: white; padding: 10px; border-radius: 14px; min-height: 50px; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s; }
         
-        /* Heute-Karte: 4px Border und Ausgleich durch negatives Margin */
+        /* Heute-Karte: 6px Border */
         .day-card.is-today {
             border: 6px solid !important;
             z-index: 10;   /* Stellt sicher, dass der dickere Rahmen über anderen liegt */
-            font-size: 1rem !important;
         }
 
         /* Fall 1: Heute + Noch kein Koch gewählt (Grauer Rand) */
         .day-card.is-today {
             border-color: #94a3b8 !important; /* Ein schönes Grau */
+            font-size: 1rem !important;
         }
 
         /* Fall 2: Heute + Julia kocht (Pinker Rand) */
         .day-card.is-today.chef-j {
             border-color: var(--julia) !important;
+            font-size: 1rem !important;
         }
 
         /* Fall 3: Heute + Hendrik kocht (Blauer Rand) */
         .day-card.is-today.chef-h {
             border-color: var(--hendrik) !important;
+            font-size: 1rem !important;
         }
         
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
