@@ -529,16 +529,22 @@
             return index;
         }
 
-        // Hilfsfunktion zum Aufbereiten des Textes
-        function getFormattedList() {
+        // Hilfsfunktion zum Aufbereiten des Textes ohne [ ] Symbole
+        window.getFormattedList = () => {
             const currentKW = document.getElementById('shopTitle').innerText;
-            const items = Array.from(document.querySelectorAll('.shop-item')).map(item => {
-                const text = item.querySelector('span').innerText.replace(/\s+/g, ' ').trim();
-                const isChecked = item.querySelector('input').checked;
-                return `${isChecked ? '[x]' : '[ ]'} ${text}`;
-            });
+            
+            // Wir holen alle Shop-Items
+            const items = Array.from(document.querySelectorAll('.shop-item'))
+                // OPTIONAL: Nur Dinge exportieren, die noch NICHT abgehakt sind
+                .filter(item => !item.querySelector('input').checked)
+                .map(item => {
+                    // Extrahiert den reinen Text (Menge, Einheit, Name) aus dem span
+                    return item.querySelector('span').innerText.replace(/\s+/g, ' ').trim();
+                });
+
+            // Rückgabe: Titel + zwei Zeilenumbrüche + die Liste mit Zeilenumbrüchen getrennt
             return `${currentKW}\n\n${items.join('\n')}`;
-        }
+        };
 
         window.copyToClipboard = async () => {
             const text = getFormattedList();
@@ -749,8 +755,7 @@
             <button class="btn-hist" onclick="window.generateShoppingList()" style="margin-bottom:15px; font-size:0.8rem;">Neu aus Plan generieren</button>
             <div id="shoppingListContent"></div>
             <button class="btn-hist" style="background:#64748b; margin-top:20px;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
-            <button class="btn-hist" onclick="window.copyToClipboard()" style="font-size: 0.8rem; background: #10b981;">📋 Kopieren</button>
-            <button class="btn-hist" onclick="window.exportToKeep()" style="font-size: 0.8rem; background: #f59e0b;">📝 In Keep öffnen</button>
+            <button class="btn-hist" onclick="window.copyToClipboard()" style="font-size: 0.8rem; background: #10b981;">Kopieren</button>
         </div>
     </div>
 
