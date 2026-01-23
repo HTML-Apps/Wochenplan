@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -504,6 +505,21 @@
             }
         };
 
+        window.filterMeals = () => {
+            const searchTerm = document.getElementById('mealSearch').value.toLowerCase();
+            const meals = document.querySelectorAll('.meal-item');
+            
+            meals.forEach(meal => {
+                // Den Namen des Gerichts aus dem ersten Span holen
+                const name = meal.querySelector('span').innerText.toLowerCase();
+                if (name.includes(searchTerm) || meal.classList.contains('add-meal-btn')) {
+                    meal.style.display = "flex";
+                } else {
+                    meal.style.display = "none";
+                }
+            });
+        };
+
         function getInitialWeekIndex() {
             const today = new Date();
             const diffTime = today - baseDate;
@@ -653,7 +669,12 @@
         <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
         
         <div class="storage-section">
-            <h3>🍴 Menüplan (37 Gerichte)</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0;">🍴 Menüplan</h3>
+                <input type="text" id="mealSearch" placeholder="Gericht suchen..." 
+                    style="padding: 8px 12px; border-radius: 20px; border: 1px solid #e2e8f0; width: 40%;"
+                    oninput="filterMeals()">
+            </div>
             <div class="meal-storage" id="mealStorage"></div>
         </div>
 
