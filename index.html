@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -160,40 +161,87 @@
             return `background-color: ${bg}; border-color: ${border};`;
         }
 
-        function renderStorage(counts) {
+        async function renderStorage(counts) {
             const storageEl = document.getElementById('mealStorage');
             if (!storageEl) return;
 
-            // Wir filtern "---" aus der Min/Max Berechnung heraus, damit die Skala für echte Gerichte stimmt
-            const countValues = speisekammerData
-                .filter(item => item.name !== "---")
-                .map(item => counts[item.name] || 0);
-            
-            const minCount = countValues.length > 0 ? Math.min(...countValues) : 0;
-            const maxCount = countValues.length > 0 ? Math.max(...countValues) : 0;
+            // 1. Zähler in Überschrift
+            const totalMeals = speisekammerData.length;
+            const storageHeader = document.querySelector('.storage-section h3');
+            if (storageHeader) storageHeader.innerText = `🍴 Menüplan (${totalMeals} Gerichte)`;
+
+            let lastCookedTimestamp = {};
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); // Vergleich auf Tagesbasis (Mitternacht)
+
+            // --- A: Archiv prüfen ---
+            try {
+                const histDoc = await getDoc(doc(db, "historie", "archiv"));
+                if (histDoc.exists()) {
+                    histDoc.data().eintraege.forEach(e => {
+                        speisekammerData.forEach(meal => {
+                            if (e.text.includes(meal.name) && e.timestamp < now.getTime()) {
+                                if (!lastCookedTimestamp[meal.name] || e.timestamp > lastCookedTimestamp[meal.name]) {
+                                    lastCookedTimestamp[meal.name] = e.timestamp;
+                                }
+                            }
+                        });
+                    });
+                }
+            } catch (e) { console.error(e); }
+
+            // --- B: Aktuelle Woche prüfen (nur vergangene Tage) ---
+            // Wir loopen durch alle Einträge im aktuellen planData Objekt
+            Object.keys(planData).forEach(key => {
+                // Key Format ist: "2026-KW03-Montag"
+                const parts = key.split('-');
+                if (parts.length === 3) {
+                    const kwNum = parseInt(parts[1].replace('KW', ''));
+                    const dayName = parts[2];
+                    const dayIdx = daysFull.indexOf(dayName);
+
+                    // Datum dieses speziellen Tages im Plan berechnen
+                    let planDay = new Date(baseDate);
+                    planDay.setDate(baseDate.getDate() + ((kwNum - 3) * 7) + dayIdx);
+                    planDay.setHours(0, 0, 0, 0);
+
+                    // NUR wenn der Tag vor HEUTE liegt
+                    if (planDay < now) {
+                        const mealName = (planData[key] && typeof planData[key] === 'object') ? planData[key].meal : planData[key];
+                        if (mealName && mealName !== "---") {
+                            if (!lastCookedTimestamp[mealName] || planDay.getTime() > lastCookedTimestamp[mealName]) {
+                                lastCookedTimestamp[mealName] = planDay.getTime();
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 2. Rendering der Items
+            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
+            const minCount = Math.min(...countValues);
+            const maxCount = Math.max(...countValues);
 
             storageEl.innerHTML = "";
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
-                
-                // Name wird jetzt mit übergeben
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
+                let subtitle = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
-                // Untertitel Logik für "---" vs echte Gerichte
-                let subtitle = "";
-                if (item.name === "---") {
-                    subtitle = "Platzhalter";
-                } else {
-                    subtitle = count > 0 ? `${count}x geplant` : 'neu';
+                let lastInfo = "";
+                if (lastCookedTimestamp[item.name]) {
+                    const diffDays = Math.floor((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
+                    let timeLabel = diffDays < 7 ? `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}` : `vor ${Math.floor(diffDays / 7)} Woche${Math.floor(diffDays / 7) > 1 ? 'n' : ''}`;
+                    lastInfo = `<div style="opacity:0.6; font-size:0.6rem; margin-top:2px;">Zuletzt: ${timeLabel}</div>`;
                 }
                 
                 storageEl.innerHTML += `
                     <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
                         <small style="margin-top:2px; opacity:0.7; font-size:0.65rem;">${subtitle}</small>
+                        ${lastInfo}
                     </div>`;
             });
-            
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
         }
 
