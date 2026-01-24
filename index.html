@@ -719,8 +719,42 @@
             transition: transform 0.2s;
         }
 
-        @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 500px) { .week-grid { grid-template-columns: 1fr; } }
+        /* --- Desktop Optimierungen --- */
+
+        /* 1. Container zentrieren */
+        #appSection {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 2. Grid-Verhalten steuern */
+        @media (min-width: 1051px) {
+            .week-grid { 
+                grid-template-columns: repeat(4, 1fr); /* 4 Tage oben, 3 unten - wirkt aufgeräumter */
+            }
+        }
+
+        @media (max-width: 1050px) { 
+            .week-grid { grid-template-columns: repeat(2, 1fr); } 
+        }
+
+        @media (max-width: 600px) { 
+            .week-grid { grid-template-columns: 1fr; } 
+            .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; }
+        }
+
+        /* 3. Karten-Styling für Desktop */
+        @media (min-width: 1024px) {
+            .day-card {
+                padding: 20px;
+            }
+            .day-info-col {
+                min-width: 90px;
+            }
+            .selected-meal {
+                font-size: 1.05rem;
+            }
+        }
     </style>
 </head>
 <body> 
