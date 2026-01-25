@@ -692,7 +692,7 @@
         .day-card.active { border-color: var(--primary); }
         .add-meal-btn { display: none !important; }
         .edit-mode .add-meal-btn { display: flex !important; }
-        
+
         .history-footer {
             margin-top: 20px;
             display: flex;
@@ -788,6 +788,13 @@
             }
             .selected-meal {
                 font-size: 1.05rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .btn-hist {
+                width: 100%; /* Volle Breite auf dem Handy */
+                max-width: none;
             }
         }
     </style>
