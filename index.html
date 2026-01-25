@@ -166,65 +166,61 @@
             const storageEl = document.getElementById('mealStorage');
             if (!storageEl) return;
 
-            // 1. Zähler in Überschrift
             const totalMeals = speisekammerData.length;
             const storageHeader = document.querySelector('.storage-section h3');
-            if (storageHeader) storageHeader.innerText = `🍴 Menüplan (${totalMeals-1})`;
+            if (storageHeader) storageHeader.innerText = `🍴 Menüplan (${totalMeals - 1})`;
 
             let lastCookedTimestamp = {};
             const now = new Date();
-            now.setHours(0, 0, 0, 0); // Vergleich auf Tagesbasis (Mitternacht)
+            now.setHours(0, 0, 0, 0); // Heute 00:00 Uhr
 
-            // --- A: Archiv prüfen ---
+            // --- A: Archiv & B: PlanData scannen ---
+            // Wir fassen die Logik zusammen, um den absolut neuesten Zeitstempel der VERGANGENHEIT zu finden
+            
+            // 1. Archiv scannen (falls vorhanden)
             try {
                 const histDoc = await getDoc(doc(db, "historie", "archiv"));
                 if (histDoc.exists()) {
                     histDoc.data().eintraege.forEach(e => {
-                        speisekammerData.forEach(meal => {
-                            if (e.text.includes(meal.name) && e.timestamp < now.getTime()) {
-                                if (!lastCookedTimestamp[meal.name] || e.timestamp > lastCookedTimestamp[meal.name]) {
-                                    lastCookedTimestamp[meal.name] = e.timestamp;
+                        if (e.timestamp <= now.getTime()) { // Archiv ist per Definition Vergangenheit/Heute
+                            speisekammerData.forEach(meal => {
+                                if (e.text.includes(meal.name)) {
+                                    if (!lastCookedTimestamp[meal.name] || e.timestamp > lastCookedTimestamp[meal.name]) {
+                                        lastCookedTimestamp[meal.name] = e.timestamp;
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     });
                 }
             } catch (e) { console.error(e); }
 
-            // --- B: Alle geplanten Gerichte in der planData prüfen ---
+            // 2. PlanData scannen (Echte Historie aus dem Kalender)
             Object.keys(planData).forEach(key => {
-                // Key Format: "2026-KW03-Montag"
                 const parts = key.split('-');
                 if (parts.length === 3) {
-                    const year = parseInt(parts[0]);
                     const kwNum = parseInt(parts[1].replace('KW', ''));
-                    const dayName = parts[2];
-                    const dayIdx = daysFull.indexOf(dayName);
-
-                    // Korrekte Datumsberechnung für JEDEN Key in der Datenbank
-                    // Wir nutzen das baseDate (12.01.2026 ist KW03 Montag)
+                    const dayIdx = daysFull.indexOf(parts[2]);
+                    
+                    // Präzise Datumsberechnung basierend auf deinem baseDate (12.01.2026 = KW03)
                     let planDay = new Date(2026, 0, 12); 
-                    const weeksDiff = kwNum - 3; 
-                    planDay.setDate(planDay.getDate() + (weeksDiff * 7) + dayIdx);
+                    planDay.setDate(planDay.getDate() + ((kwNum - 3) * 7) + dayIdx);
                     planDay.setHours(0, 0, 0, 0);
 
-                    // Wenn der Tag in der Vergangenheit liegt (oder heute ist)
+                    // WICHTIG: Nur in die "Zuletzt gekocht" Historie aufnehmen, wenn es HEUTE oder FRÜHER ist
                     if (planDay <= now) {
                         const data = planData[key];
                         const mealName = (data && typeof data === 'object') ? data.meal : data;
-                        
                         if (mealName && mealName !== "---") {
-                            const timestamp = planDay.getTime();
-                            // Nur den NEUESTEN Zeitstempel für dieses Gericht behalten
-                            if (!lastCookedTimestamp[mealName] || timestamp > lastCookedTimestamp[mealName]) {
-                                lastCookedTimestamp[mealName] = timestamp;
+                            if (!lastCookedTimestamp[mealName] || planDay.getTime() > lastCookedTimestamp[mealName]) {
+                                lastCookedTimestamp[mealName] = planDay.getTime();
                             }
                         }
                     }
                 }
             });
 
-            // 2. Rendering der Items
+            // 2. Rendering
             const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
             const minCount = Math.min(...countValues);
             const maxCount = Math.max(...countValues);
@@ -234,17 +230,27 @@
                 const count = counts[item.name] || 0;
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
-                // Basis-Status
                 let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
-                // Relative Zeitberechnung (wie zuvor)
+                // Relative Zeitberechnung
                 let timeLabel = "";
                 if (lastCookedTimestamp[item.name]) {
-                    const diffDays = Math.floor((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
-                    timeLabel = diffDays < 7 ? `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}` : `vor ${Math.floor(diffDays / 7)} Woche${Math.floor(diffDays / 7) > 1 ? 'n' : ''}`;
+                    const diffTime = now.getTime() - lastCookedTimestamp[item.name];
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays === 0) {
+                        timeLabel = "heute";
+                    } else if (diffDays > 0) {
+                        if (diffDays < 7) {
+                            timeLabel = `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
+                        } else {
+                            const weeks = Math.floor(diffDays / 7);
+                            timeLabel = `vor ${weeks} Woche${weeks > 1 ? 'n' : ''}`;
+                        }
+                    }
+                    // Wenn diffDays negativ ist (Zukunft), bleibt timeLabel leer.
                 }
 
-                // Zusammensetzen der Unterzeile
                 const fullSubtitle = timeLabel ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
 
                 storageEl.innerHTML += `
