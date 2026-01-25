@@ -239,6 +239,51 @@
             });
         }
 
+            // 2. Rendering
+            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
+            const minCount = Math.min(...countValues);
+            const maxCount = Math.max(...countValues);
+
+            storageEl.innerHTML = "";
+            speisekammerData.forEach((item) => {
+                const count = counts[item.name] || 0;
+                const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
+                
+                let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
+                
+                // Relative Zeitberechnung
+                let timeLabel = "";
+                if (lastCookedTimestamp[item.name]) {
+                    const diffTime = now.getTime() - lastCookedTimestamp[item.name];
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays === 0) {
+                        timeLabel = "heute";
+                    } else if (diffDays > 0) {
+                        if (diffDays < 7) {
+                            timeLabel = `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
+                        } else {
+                            const weeks = Math.floor(diffDays / 7);
+                            timeLabel = `vor ${weeks} Woche${weeks > 1 ? 'n' : ''}`;
+                        }
+                    }
+                    // Wenn diffDays negativ ist (Zukunft), bleibt timeLabel leer.
+                }
+
+                const fullSubtitle = timeLabel ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
+
+                storageEl.innerHTML += `
+                    <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                        <span style="display:block; width:100%">${item.name}</span>
+                        <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${fullSubtitle}
+                        </small>
+                    </div>`;
+            });
+            storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
+        }
+
+
         // Funktion zum schnellen Update der Farben ohne komplettes Re-Rendering
         function updateStorageHeatmap(counts) {
             renderStorage(counts); 
