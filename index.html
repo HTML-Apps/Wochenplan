@@ -692,8 +692,32 @@
         .day-card.active { border-color: var(--primary); }
         .add-meal-btn { display: none !important; }
         .edit-mode .add-meal-btn { display: flex !important; }
-        .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
-        .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
+        
+        .history-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center; /* Zentriert den Button */
+            gap: 10px;
+            width: 100%;
+            max-width: 1200px;
+            box-sizing: border-box; /* Verhindert das Hinausragen durch Padding */
+            padding: 0 10px;        /* Sicherheitsabstand zum Rand */
+        }
+
+        .btn-hist {
+            /* Entferne 'flex: 1', damit der Button auf Desktop 
+            nicht die kompletten 1200px einnimmt */
+            min-width: 200px; 
+            max-width: 400px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
