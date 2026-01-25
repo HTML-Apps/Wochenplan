@@ -191,27 +191,33 @@
                 }
             } catch (e) { console.error(e); }
 
-            // --- B: Aktuelle Woche prüfen (nur vergangene Tage) ---
-            // Wir loopen durch alle Einträge im aktuellen planData Objekt
+            // --- B: Alle geplanten Gerichte in der planData prüfen ---
             Object.keys(planData).forEach(key => {
-                // Key Format ist: "2026-KW03-Montag"
+                // Key Format: "2026-KW03-Montag"
                 const parts = key.split('-');
                 if (parts.length === 3) {
+                    const year = parseInt(parts[0]);
                     const kwNum = parseInt(parts[1].replace('KW', ''));
                     const dayName = parts[2];
                     const dayIdx = daysFull.indexOf(dayName);
 
-                    // Datum dieses speziellen Tages im Plan berechnen
-                    let planDay = new Date(baseDate);
-                    planDay.setDate(baseDate.getDate() + ((kwNum - 3) * 7) + dayIdx);
+                    // Korrekte Datumsberechnung für JEDEN Key in der Datenbank
+                    // Wir nutzen das baseDate (12.01.2026 ist KW03 Montag)
+                    let planDay = new Date(2026, 0, 12); 
+                    const weeksDiff = kwNum - 3; 
+                    planDay.setDate(planDay.getDate() + (weeksDiff * 7) + dayIdx);
                     planDay.setHours(0, 0, 0, 0);
 
-                    // NUR wenn der Tag vor HEUTE liegt
-                    if (planDay < now) {
-                        const mealName = (planData[key] && typeof planData[key] === 'object') ? planData[key].meal : planData[key];
+                    // Wenn der Tag in der Vergangenheit liegt (oder heute ist)
+                    if (planDay <= now) {
+                        const data = planData[key];
+                        const mealName = (data && typeof data === 'object') ? data.meal : data;
+                        
                         if (mealName && mealName !== "---") {
-                            if (!lastCookedTimestamp[mealName] || planDay.getTime() > lastCookedTimestamp[mealName]) {
-                                lastCookedTimestamp[mealName] = planDay.getTime();
+                            const timestamp = planDay.getTime();
+                            // Nur den NEUESTEN Zeitstempel für dieses Gericht behalten
+                            if (!lastCookedTimestamp[mealName] || timestamp > lastCookedTimestamp[mealName]) {
+                                lastCookedTimestamp[mealName] = timestamp;
                             }
                         }
                     }
