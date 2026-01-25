@@ -276,16 +276,12 @@
         window.assignMeal = async (mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
-            // Wir holen uns den aktuellen Status (falls schon ein Koch existiert)
             const currentData = planData[selectedDayKey];
             let currentChef = null;
-            
             if (currentData && typeof currentData === 'object') {
                 currentChef = currentData.chef;
             }
 
-            // Wir speichern das Gericht UND den Koch-Status (auch wenn dieser null ist)
-            // Damit ist sichergestellt, dass immer ein konsistentes Objekt in Firebase liegt
             const updatedEntry = { 
                 meal: mealName, 
                 chef: currentChef || null 
@@ -293,7 +289,55 @@
             
             planData[selectedDayKey] = updatedEntry;
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+
+            // --- NEU: AUTO-ARCHIV LOGIK ---
+            const parts = selectedDayKey.split('-'); // ["2026", "KW03", "Montag"]
+            const kwNum = parseInt(parts[1].replace('KW', ''));
+            const dayName = parts[2];
+            const dayIdx = daysFull.indexOf(dayName);
+
+            // Datum des gewählten Tages berechnen
+            let planDay = new Date(baseDate);
+            planDay.setDate(baseDate.getDate() + ((kwNum - 3) * 7) + dayIdx);
+            planDay.setHours(0, 0, 0, 0);
+
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+
+            // Wenn der Tag heute oder in der Vergangenheit liegt, ab ins Archiv!
+            if (planDay <= now && mealName !== "---") {
+                await updateArchiveAutomatically(mealName, planDay, parts[1]);
+            }
         };
+
+        // Hilfsfunktion: Schreibt ein Gericht automatisch ins Archiv, wenn es in der Vergangenheit liegt
+        async function updateArchiveAutomatically(mealName, dateObj, kwLabel) {
+            if (!mealName || mealName === "---") return;
+
+            try {
+                const archivRef = doc(db, "historie", "archiv");
+                const ds = await getDoc(archivRef);
+                let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
+
+                // Prüfen, ob für diesen Tag/Gericht-Kombi schon ein Eintrag existiert (Dubletten vermeiden)
+                const exists = eintraege.some(e => e.timestamp === dateObj.getTime() && e.text.includes(mealName));
+                
+                if (!exists) {
+                    eintraege.push({
+                        woche: kwLabel,
+                        text: `<b>Automatisch:</b> ${mealName}`,
+                        timestamp: dateObj.getTime(),
+                        date: dateObj.toLocaleDateString('de-DE')
+                    });
+                    // Nach Timestamp sortieren, damit die Historie chronologisch bleibt
+                    eintraege.sort((a, b) => a.timestamp - b.timestamp);
+                    await setDoc(archivRef, { eintraege });
+                    console.log(`Automatisch archiviert: ${mealName}`);
+                }
+            } catch (e) {
+                console.error("Fehler beim automatischen Archivieren:", e);
+            }
+        }
 
         // --- ZUTATEN EDITOR LOGIK ---
         let currentRecipeId = null;
