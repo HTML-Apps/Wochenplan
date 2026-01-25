@@ -516,39 +516,6 @@
             selectedDayKey = key;
         };
 
-        window.archiveCurrentWeek = async () => {
-            const currentKWLabel = kwLabels[currentWeekIndex];
-            if (!confirm(`${currentKWLabel} archivieren?`)) return;
-            let summary = "";
-            const kwNum = parseInt(currentKWLabel.split(' ').pop());
-            daysFull.forEach(day => {
-                const id = `2026-KW${kwNum}-${day}`;
-                const el = document.getElementById(`text-${id}`);
-                if (el && el.innerText !== "---") summary += `<b>${day}:</b> ${el.innerText}<br>`;
-            });
-            if (summary === "") return;
-            try {
-                const archivRef = doc(db, "historie", "archiv");
-                const ds = await getDoc(archivRef);
-                let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
-                const bereinigteEintraege = eintraege.filter(e => e.woche !== currentKWLabel);
-                bereinigteEintraege.push({ woche: currentKWLabel, text: summary, timestamp: Date.now(), date: new Date().toLocaleString('de-DE') });
-                await setDoc(archivRef, { eintraege: bereinigteEintraege });
-                alert(`${currentKWLabel} archiviert!`);
-            } catch (e) { console.error(e); }
-        };
-
-        window.showHistory = async () => {
-            const modal = document.getElementById('historyModal');
-            document.getElementById('historyContent').innerHTML = "Lade...";
-            modal.style.display = "flex";
-            const ds = await getDoc(doc(db, "historie", "archiv"));
-            if (ds.exists()) {
-                let list = ds.data().eintraege || [];
-                document.getElementById('historyContent').innerHTML = list.reverse().map(e => `<div style="padding:10px; border-bottom:1px solid #eee;"><strong>${e.woche}</strong> (${e.date})<br>${e.text}</div>`).join('');
-            }
-        };
-
         window.filterMeals = () => {
             const searchTerm = document.getElementById('mealSearch').value.toLowerCase();
             const meals = document.querySelectorAll('.meal-item');
@@ -832,8 +799,6 @@
         </div>
 
         <div class="history-footer">
-            <button class="btn-hist" onclick="archiveCurrentWeek()" style="background:#64748b">Archivieren</button>
-            <button class="btn-hist" onclick="showHistory()"style="background:#64748b">Historie</button>
             <button class="btn-hist" onclick="window.showShoppingList()" style="background:var(--primary)">Einkaufsliste</button>
         </div>
     </div>
@@ -877,10 +842,5 @@
         </div>
     </div>
 
-    <div id="historyModal" class="modal" onclick="this.style.display='none'">
-        <div class="modal-box" onclick="event.stopPropagation()">
-            <h2>Historie</h2><div id="historyContent"></div>
-        </div>
-    </div>
 </body>
 </html>
