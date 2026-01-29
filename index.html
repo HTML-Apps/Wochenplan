@@ -346,18 +346,7 @@
             row.className = 'zutat-row';
             row.innerHTML = `
                 <input type="number" step="any" placeholder="Menge" value="${menge}" class="z-menge">
-
-                <input type="text" list="unit-list" placeholder="Einh." class="z-einheit">
-                <datalist id="unit-list">
-                    <option value="g">
-                    <option value="kg">
-                    <option value="ml">
-                    <option value="L">
-                    <option value="St.">
-                    <option value="EL">
-                    <option value="TL">
-                </datalist>
-
+                <input type="text" placeholder="Einh." value="${einheit}" class="z-einheit">
                 <input type="text" placeholder="Zutat" value="${name}" class="z-name">
                 <button onclick="this.parentElement.remove()" class="z-del">×</button>
             `;
