@@ -641,7 +641,7 @@
         .controls-wrapper { display: flex; align-items: center; gap: 10px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 100; }
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
-        .slider-container { width: 100%; max-width: 1200px; overflow: hidden; }
+        .slider-container { width: 100%; max-width: 1800px; overflow: hidden; }
         .week-wrapper { display: flex; transition: transform 0.4s ease-in-out; }
         .week-page { min-width: 100%; box-sizing: border-box; }
         .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
@@ -681,7 +681,7 @@
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
-        .storage-section { width: 95%; max-width: 1200px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+        .storage-section { width: 95%; max-width: 1800px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 15px; }
         .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; justify-content: center; }
         .meal-item:hover { background: #e0e7ff; }
@@ -690,7 +690,7 @@
         .day-card.active { border-color: var(--primary); }
         .add-meal-btn { display: none !important; }
         .edit-mode .add-meal-btn { display: flex !important; }
-        .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1200px; }
+        .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; max-width: 1800px; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
@@ -732,14 +732,14 @@
 
         /* 1. Container zentrieren */
         #appSection {
-            max-width: 1200px;
+            max-width: 1800px;
             margin: 0 auto;
         }
 
         /* 2. Grid-Verhalten steuern */
         @media (min-width: 1051px) {
             .week-grid { 
-                grid-template-columns: repeat(2, 1fr); 
+                grid-template-columns: repeat(4, 1fr); 
             }
         }
 
@@ -767,7 +767,7 @@
                 left: 95px; 
             }
             .storage-section { 
-                width: 98%;
+                width: 99%;
             }
         }
     </style>
