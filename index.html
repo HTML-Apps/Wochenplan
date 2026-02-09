@@ -211,7 +211,7 @@
 
             storageEl.innerHTML = "";
             
-            // Filter Buttons rendern (falls noch nicht da oder update nötig)
+            // Filter Buttons rendern
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
@@ -237,14 +237,13 @@
 
                 // Tags Icons vorbereiten
                 let tagIcons = "";
-                const itemTags = item.tags || []; // Array laden
+                const itemTags = item.tags || []; 
                 if(Array.isArray(itemTags)) {
                     itemTags.forEach(t => {
-                        if(TAGS[t]) tagIcons += `<span title="${t}">${TAGS[t].icon}</span>`;
+                        if(TAGS[t]) tagIcons += `<span title="${TAGS[t].label}">${TAGS[t].icon}</span>`;
                     });
                 }
 
-                // Data-Attribute für Filterung hinzufügen
                 const tagString = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
                 storageEl.innerHTML += `
@@ -259,21 +258,20 @@
 
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
             
-            // Filter anwenden (falls einer aktiv war)
             window.filterMeals();
         }
 
-        // Neue Funktion zum Rendern der Filter-Buttons
+        // Funktion zum Rendern der Filter-Buttons
         function renderTagFilters() {
             const container = document.getElementById('tagFilterContainer');
             if(!container) return;
             
-            // "Alle" Button - wir lassen den Text oder nutzen ein Symbol wie 📑
+            // "Alle" Button bleibt mit Text
             let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags: Alle</button>`;
             
             Object.keys(TAGS).forEach(key => {
                 const isActive = activeTagFilter === key;
-                // HIER GEÄNDERT: Nur das Icon wird gerendert, das Label als "title" für Tooltips
+                // *** HIER GEÄNDERT ***: Nur das Icon wird als Button-Inhalt gerendert, das Label als "title" für Tooltips.
                 html += `<button class="filter-tag ${isActive ? 'active' : ''}" 
                                 onclick="window.setTagFilter('${key}')" 
                                 title="${TAGS[key].label}">${TAGS[key].icon}</button>`;
@@ -384,23 +382,33 @@
             document.getElementById('viewZubereitung').innerText = "Lade...";
             document.getElementById('zutatenEditorContainer').innerHTML = "";
             
-            // Tags Checkboxen rendern
             const tagContainer = document.getElementById('editTagsContainer');
             tagContainer.innerHTML = "";
-            // Aktuelle Tags aus speisekammerData holen (da wir sie dort schon geladen haben)
+            
             const mealData = speisekammerData.find(m => m.id === mealId);
             const currentTags = mealData && mealData.tags ? mealData.tags : [];
             
             Object.keys(TAGS).forEach(key => {
                 const checked = currentTags.includes(key) ? 'checked' : '';
+                // *** HIER GEÄNDERT ***: Das Label enthält nur noch das Icon, das Label-Text ist der `title`.
                 tagContainer.innerHTML += `
-                    <label title="${TAGS[key].label}" style="display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; padding:8px; border-radius:50%; width:30px; height:30px; justify-content:center; cursor:pointer;">
-                        <input type="checkbox" value="${key}" ${checked} class="tag-checkbox" style="display:none;"> 
-                        <span class="tag-icon-display" style="font-size:1.2rem; filter: ${checked ? 'grayscale(0)' : 'grayscale(1)'}; opacity: ${checked ? '1' : '0.4'};">
+                    <label title="${TAGS[key].label}" class="tag-edit-label">
+                        <input type="checkbox" value="${key}" ${checked} class="tag-checkbox"> 
+                        <span class="tag-icon-display" style="font-size:1.5rem; filter: ${checked ? 'grayscale(0)' : 'grayscale(1)'}; opacity: ${checked ? '1' : '0.4'};">
                             ${TAGS[key].icon}
                         </span>
                     </label>
                 `;
+            });
+
+            // Event-Listener für die visuelle Rückmeldung hinzufügen
+            document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const iconSpan = e.target.nextElementSibling;
+                    const isChecked = e.target.checked;
+                    iconSpan.style.filter = isChecked ? 'grayscale(0)' : 'grayscale(1)';
+                    iconSpan.style.opacity = isChecked ? '1' : '0.4';
+                });
             });
 
             try {
@@ -433,16 +441,12 @@
                 name: row.querySelector('.z-name').value
             })).filter(z => z.name !== "");
 
-            // Tags sammeln
             const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
             const selectedTags = Array.from(tagCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
 
             const zubereitung = document.getElementById('editZubereitung').value;
             
-            // 1. Rezept speichern
             await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
-            
-            // 2. Tags in Speisekammer-Dokument speichern (für Filterung wichtig)
             await setDoc(doc(db, "speisekammer", currentRecipeId), { tags: selectedTags }, { merge: true });
 
             document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
@@ -574,10 +578,8 @@
                 const tagsAttr = meal.dataset.tags || "";
                 const mealTags = tagsAttr.split(',');
 
-                // 1. Text Filter check
                 const matchText = name.includes(searchTerm);
                 
-                // 2. Tag Filter check
                 let matchTag = true;
                 if (activeTagFilter) {
                     matchTag = mealTags.includes(activeTagFilter);
@@ -669,7 +671,6 @@
         }
         window.onload = init;
 
-        // NEU HINZUFÜGEN: Service Worker Registrierung
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
@@ -741,6 +742,11 @@
         .filter-tag { border: 1px solid #e2e8f0; background: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; color: #64748b; }
         .filter-tag.active { background: var(--primary); color: white; border-color: var(--primary); }
         .filter-tag:hover:not(.active) { background: #f1f5f9; }
+
+        /* *** HIER GEÄNDERT ***: Neue Styles für die Icon-Tags im Bearbeiten-Modus */
+        .tag-edit-label { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #f1f5f9; padding: 8px; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; }
+        .tag-checkbox { display: none; }
+        .tag-icon-display { transition: all 0.2s; }
 
         @media (min-width: 1051px) { .week-grid { grid-template-columns: repeat(4, 1fr); } }
         @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
