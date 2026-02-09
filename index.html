@@ -268,11 +268,15 @@
             const container = document.getElementById('tagFilterContainer');
             if(!container) return;
             
-            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Alle</button>`;
+            // "Alle" Button - wir lassen den Text oder nutzen ein Symbol wie 📑
+            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags: Alle</button>`;
             
             Object.keys(TAGS).forEach(key => {
                 const isActive = activeTagFilter === key;
-                html += `<button class="filter-tag ${isActive ? 'active' : ''}" onclick="window.setTagFilter('${key}')">${TAGS[key].icon}</button>`;
+                // HIER GEÄNDERT: Nur das Icon wird gerendert, das Label als "title" für Tooltips
+                html += `<button class="filter-tag ${isActive ? 'active' : ''}" 
+                                onclick="window.setTagFilter('${key}')" 
+                                title="${TAGS[key].label}">${TAGS[key].icon}</button>`;
             });
             container.innerHTML = html;
         }
@@ -390,8 +394,11 @@
             Object.keys(TAGS).forEach(key => {
                 const checked = currentTags.includes(key) ? 'checked' : '';
                 tagContainer.innerHTML += `
-                    <label style="display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; padding:5px 10px; border-radius:15px; font-size:0.8rem; cursor:pointer;">
-                        <input type="checkbox" value="${key}" ${checked} class="tag-checkbox"> ${TAGS[key].label} ${TAGS[key].icon}
+                    <label title="${TAGS[key].label}" style="display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; padding:8px; border-radius:50%; width:30px; height:30px; justify-content:center; cursor:pointer;">
+                        <input type="checkbox" value="${key}" ${checked} class="tag-checkbox" style="display:none;"> 
+                        <span class="tag-icon-display" style="font-size:1.2rem; filter: ${checked ? 'grayscale(0)' : 'grayscale(1)'}; opacity: ${checked ? '1' : '0.4'};">
+                            ${TAGS[key].icon}
+                        </span>
                     </label>
                 `;
             });
