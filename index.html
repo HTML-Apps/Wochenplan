@@ -32,7 +32,7 @@
 
         // --- TAG CONFIGURATION ---
         const TAGS = {
-            "": { label: "Schnell", icon: "⚡" },
+            "schnell": { label: "Schnell", icon: "⚡" },
             "aufwändig": { label: "Aufwändig", icon: "🕰️" },
             "Fisch": { label: "Fisch", icon: "🐟" },
             "Fleisch": { label: "Fleisch", icon: "🥩" },
@@ -267,16 +267,24 @@
             const container = document.getElementById('tagFilterContainer');
             if(!container) return;
             
-            // "Alle" Button bleibt mit Text
+            // "Alle" Button bleibt meistens mit Text sinnvoll
             let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags: Alle</button>`;
             
             Object.keys(TAGS).forEach(key => {
                 const isActive = activeTagFilter === key;
-                // *** HIER GEÄNDERT ***: Nur das Icon wird als Button-Inhalt gerendert, das Label als "title" für Tooltips.
-                html += `<button class="filter-tag ${isActive ? 'active' : ''}" 
-                                onclick="window.setTagFilter('${key}')" 
-                                title="${TAGS[key].label}">${TAGS[key].icon}</button>`;
+                const tag = TAGS[key];
+
+                // Wir nutzen aria-label für Screenreader und title für den Tooltip beim Hovern
+                html += `
+                    <button 
+                        class="filter-tag ${isActive ? 'active' : ''}" 
+                        onclick="window.setTagFilter('${key}')" 
+                        title="${tag.label}"
+                        aria-label="${tag.label}">
+                        ${tag.icon}
+                    </button>`;
             });
+            
             container.innerHTML = html;
         }
 
