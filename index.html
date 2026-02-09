@@ -272,7 +272,7 @@
             
             Object.keys(TAGS).forEach(key => {
                 const isActive = activeTagFilter === key;
-                html += `<button class="filter-tag ${isActive ? 'active' : ''}" onclick="window.setTagFilter('${key}')">${TAGS[key].label} ${TAGS[key].icon}</button>`;
+                html += `<button class="filter-tag ${isActive ? 'active' : ''}" onclick="window.setTagFilter('${key}')">${TAGS[key].icon}</button>`;
             });
             container.innerHTML = html;
         }
