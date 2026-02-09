@@ -182,20 +182,20 @@
             now.setHours(0, 0, 0, 0);
 
             Object.keys(planData).forEach(key => {
-                const parts = key.split('-');
-                if (parts.length === 3) {
-                    const kwNum = parseInt(parts[1].replace('KW', ''));
-                    const dayIdx = daysFull.indexOf(parts[2]);
-                    
-                    let planDay = new Date(2026, 0, 12); 
-                    planDay.setDate(planDay.getDate() + ((kwNum - 3) * 7) + dayIdx);
-                    planDay.setHours(0, 0, 0, 0);
+                const data = planData[key];
+                let mealName = (data && typeof data === 'object') ? data.meal : data;
 
-                    if (planDay <= now) {
-                        const data = planData[key];
-                        const mealName = (data && typeof data === 'object') ? data.meal : data;
+                if (mealName && mealName !== "---") {
+                    const parts = key.split('-');
+                    if (parts.length === 3) {
+                        const kwNum = parseInt(parts[1].replace('KW', ''));
+                        const dayIdx = daysFull.indexOf(parts[2]);
                         
-                        if (mealName && mealName !== "---") {
+                        let planDay = new Date(baseDate); // Verwende baseDate für korrekte Jahresberechnung
+                        planDay.setDate(baseDate.getDate() + ((kwNum - 3) * 7) + dayIdx);
+                        planDay.setHours(0, 0, 0, 0);
+
+                        if (planDay <= now) {
                             const ts = planDay.getTime();
                             if (!lastCookedTimestamp[mealName] || ts > lastCookedTimestamp[mealName]) {
                                 lastCookedTimestamp[mealName] = ts;
@@ -235,30 +235,32 @@
                 const fullSubtitle = (timeLabel && item.name !== "---") ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
 
                 // Tags Icons vorbereiten
-                let tagIcons = "";
+                let tagIconsHtml = ""; // Umbenannt, um Verwechslung mit Array zu vermeiden
                 const itemTags = item.tags || []; 
                 if(Array.isArray(itemTags)) {
-                    // *** HIER IST DIE KORREKTUR ***
-                    // Das Label wurde entfernt, nur noch das Icon mit dem Titel wird ausgegeben.
-                    // Neu (Nur Icon):
                     itemTags.forEach(t => {
-                        if(TAGS[t]) tagIcons += `<span title="${TAGS[t].label}">${TAGS[t].icon}</span>`;
+                        if(TAGS[t]) tagIconsHtml += `<span title="${TAGS[t].label}">${TAGS[t].icon}</span>`;
                     });
                 }
 
-                const tagString = Array.isArray(item.tags) ? item.tags.join(',') : '';
+                // Wichtige Änderung: Das data-tags Attribut hinzufügen
+                const tagStringForDataAttr = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
                 storageEl.innerHTML += `
-                    <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                    <div class="meal-item" 
+                         style="${dynamicStyle}" 
+                         onclick="handleMealClick('${item.id}', '${item.name}')"
+                         data-tags="${tagStringForDataAttr}">
                         <span style="display:block; width:100%">${item.name}</span>
                         <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            ${fullSubtitle}
+                            ${fullSubtitle} ${tagIconsHtml}
                         </small>
                     </div>`;
             });
 
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
             
+            // Initialen Filter nach dem Rendern anwenden
             window.filterMeals();
         }
 
