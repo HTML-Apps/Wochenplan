@@ -240,8 +240,9 @@
                 if(Array.isArray(itemTags)) {
                     // *** HIER IST DIE KORREKTUR ***
                     // Das Label wurde entfernt, nur noch das Icon mit dem Titel wird ausgegeben.
+                    // Neu (Nur Icon):
                     itemTags.forEach(t => {
-                        if(TAGS[t]) tagIcons += `<span title="">${TAGS[t].icon}</span>`;
+                        if(TAGS[t]) tagIcons += `<span title="${TAGS[t].label}">${TAGS[t].icon}</span>`;
                     });
                 }
 
@@ -250,6 +251,7 @@
                 storageEl.innerHTML += `
                     <div class="meal-item" data-tags="${tagString}" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
+                        <div class="meal-tags-preview">${tagIcons}</div> 
                     </div>`;
             });
 
@@ -399,10 +401,10 @@
                 tagContainer.innerHTML += `
                     <label title="${TAGS[key].label}" class="tag-edit-label">
                         <input type="checkbox" value="${key}" ${checked} class="tag-checkbox"> 
-                        <span class="tag-icon-display" style="font-size:1.5rem; ...">
+                        <span class="tag-icon-display" style="font-size:1.5rem; filter: ${checked ? 'grayscale(0)' : 'grayscale(1)'}; opacity: ${checked ? '1' : '0.4'};">
                             ${TAGS[key].icon}
                         </span>
-                        </label>
+                    </label>
                 `;
             });
 
