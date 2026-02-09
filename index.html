@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wochenplaner</title>
     <link rel="icon" href="cook.png" type="image/png">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#160f8e">
+    <link rel="apple-touch-icon" href="cook.png">
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -656,6 +661,15 @@
             updateKWDisplay();
         }
         window.onload = init;
+
+        // NEU HINZUFÜGEN: Service Worker Registrierung
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registriert!', reg))
+                    .catch(err => console.log('Service Worker Fehler:', err));
+            });
+        }
     </script>
     <style>
         :root { --primary: #160f8e; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
