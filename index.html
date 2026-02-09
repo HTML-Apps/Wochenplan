@@ -246,6 +246,7 @@
                 // Wichtige Änderung: Das data-tags Attribut hinzufügen
                 const tagStringForDataAttr = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
+                // ${fullSubtitle} ${tagIconsHtml} wenn das kleine Tag-Icon in der Meal-View angezeigt werden soll
                 storageEl.innerHTML += `
                     <div class="meal-item" 
                          style="${dynamicStyle}" 
