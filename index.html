@@ -249,11 +249,9 @@
                 const tagString = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
                 storageEl.innerHTML += `
-                    <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                    <div class="meal-item" data-tags="${tagString}" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
-                        <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            ${fullSubtitle}
-                        </small>
+                        <div class="meal-tags-preview">${tagIcons}</div> 
                     </div>`;
             });
 
@@ -583,18 +581,33 @@
             const meals = document.querySelectorAll('.meal-item');
             
             meals.forEach(meal => {
-                const name = meal.querySelector('span').innerText.toLowerCase();
-                const tagsAttr = meal.dataset.tags || "";
-                const mealTags = tagsAttr.split(',');
+                // 1. Den Namen des Gerichts holen
+                const nameEl = meal.querySelector('span');
+                if (!nameEl) return; // Falls es der "+ Hinzufügen" Button ist
+                const name = nameEl.innerText.toLowerCase();
 
+                // 2. Die Tags aus dem data-Attribut holen und in ein Array umwandeln
+                const tagsAttr = meal.dataset.tags || "";
+                // Wir splitten am Komma und entfernen etwaige Leerzeichen
+                const mealTags = tagsAttr.split(',').map(t => t.trim());
+
+                // 3. Match-Prüfung für Text
                 const matchText = name.includes(searchTerm);
                 
+                // 4. Match-Prüfung für Tags
                 let matchTag = true;
-                if (activeTagFilter) {
+                if (activeTagFilter !== null) {
+                    // Prüfen, ob der aktive Filter-Key im Array der Gerichts-Tags existiert
                     matchTag = mealTags.includes(activeTagFilter);
                 }
 
-                if ((matchText && matchTag) || meal.classList.contains('add-meal-btn')) {
+                // 5. Anzeigen oder Verstecken
+                if (meal.classList.contains('add-meal-btn')) {
+                    // Den "Hinzufügen" Button zeigen wir nur im Edit-Mode (wird über CSS gesteuert)
+                    return; 
+                }
+
+                if (matchText && matchTag) {
                     meal.style.display = "flex";
                 } else {
                     meal.style.display = "none";
