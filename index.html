@@ -249,9 +249,11 @@
                 const tagString = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
                 storageEl.innerHTML += `
-                    <div class="meal-item" data-tags="${tagString}" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                    <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
-                        <div class="meal-tags-preview">${tagIcons}</div> 
+                        <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${fullSubtitle}
+                        </small>
                     </div>`;
             });
 
