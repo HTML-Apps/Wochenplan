@@ -25,6 +25,15 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
+        // --- TAG CONFIGURATION ---
+        const TAGS = {
+            "schnell": { label: "Schnell", icon: "⚡" },
+            "Fisch": { label: "Fisch", icon: "🐟" },
+            "Fleisch": { label: "Fleisch", icon: "🥩" },
+            "vegetarisch": { label: "Veggie", icon: "🥕" }
+        };
+        let activeTagFilter = null;
+
         onAuthStateChanged(auth, (user) => {
             const loginSection = document.getElementById('loginSection');
             const appSection = document.getElementById('appSection');
@@ -47,8 +56,6 @@
                 }
             });
         };
-
-        // ... (Firebase Konfiguration und Auth bleiben gleich wie in deinem Upload)
 
         const daysFull = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
         let currentWeekIndex = 0;
@@ -114,7 +121,6 @@
                         }
                     });
                     
-                    // Speisekammer mit dynamischen Schwellenwerten rendern
                     renderStorage(counts);
                 }
             });
@@ -132,7 +138,6 @@
             const counts = {};
             Object.values(planData).forEach(val => {
                 const name = (val && typeof val === 'object') ? val.meal : val;
-                // WICHTIG: "---" wird hier explizit ignoriert
                 if (name && name !== "---") {
                     counts[name] = (counts[name] || 0) + 1;
                 }
@@ -140,15 +145,11 @@
             return counts;
         }
 
-        // Berechnet einen HSL-Farbwert basierend auf der relativen Position im Min-Max-Bereich
         function getHeatStyle(count, min, max, mealName) {
-            // Neutrales Design für den Platzhalter
             if (mealName === "---") {
                 return "background-color: #ffffff; border-color: #e2e8f0; color: #94a3b8;";
             }
-
             if (count === 0) return "background-color: #f0fdf4; border-color: #bbf7d0;";
-
             if (max === min) return "background-color: #fef9c3; border-color: #fde047;";
 
             const ratio = (count - min) / (max - min);
@@ -164,11 +165,9 @@
             const storageEl = document.getElementById('mealStorage');
             if (!storageEl) return;
 
-            // 1. Anzeige der Anzahl im Header (Funktionalität wiederhergestellt)
             const totalMeals = speisekammerData.length;
             const storageHeader = document.querySelector('.storage-section h3');
             if (storageHeader) {
-                // -1 um den Platzhalter "---" nicht mitzuzählen
                 storageHeader.innerText = `🍴 Menüplan (${totalMeals - 1})`;
             }
 
@@ -176,19 +175,16 @@
             const now = new Date();
             now.setHours(0, 0, 0, 0);
 
-            // 2. NEUE LOGIK: Zeitstempel NUR aus planData berechnen
             Object.keys(planData).forEach(key => {
                 const parts = key.split('-');
                 if (parts.length === 3) {
                     const kwNum = parseInt(parts[1].replace('KW', ''));
                     const dayIdx = daysFull.indexOf(parts[2]);
                     
-                    // Reales Datum berechnen (12.01.2026 ist KW03 Montag)
                     let planDay = new Date(2026, 0, 12); 
                     planDay.setDate(planDay.getDate() + ((kwNum - 3) * 7) + dayIdx);
                     planDay.setHours(0, 0, 0, 0);
 
-                    // Nur berücksichtigen, wenn der Tag HEUTE oder in der VERGANGENHEIT liegt
                     if (planDay <= now) {
                         const data = planData[key];
                         const mealName = (data && typeof data === 'object') ? data.meal : data;
@@ -203,22 +199,21 @@
                 }
             });
 
-            // 3. Heatmap-Werte vorbereiten (Funktionalität wiederhergestellt)
             const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
             const minCount = countValues.length > 0 ? Math.min(...countValues) : 0;
             const maxCount = countValues.length > 0 ? Math.max(...countValues) : 0;
 
-            // 4. Rendering
             storageEl.innerHTML = "";
+            
+            // Filter Buttons rendern (falls noch nicht da oder update nötig)
+            renderTagFilters();
+
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
-                
-                // Heatmap-Style anwenden
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
                 let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
-                // Relative Zeit berechnen (Nur für Gerichte in der Vergangenheit)
                 let timeLabel = "";
                 if (lastCookedTimestamp[item.name]) {
                     const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
@@ -234,30 +229,59 @@
 
                 const fullSubtitle = (timeLabel && item.name !== "---") ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
 
+                // Tags Icons vorbereiten
+                let tagIcons = "";
+                const itemTags = item.tags || []; // Array laden
+                if(Array.isArray(itemTags)) {
+                    itemTags.forEach(t => {
+                        if(TAGS[t]) tagIcons += `<span title="${t}">${TAGS[t].icon}</span>`;
+                    });
+                }
+
+                // Data-Attribute für Filterung hinzufügen
+                const tagString = Array.isArray(item.tags) ? item.tags.join(',') : '';
+
                 storageEl.innerHTML += `
-                    <div class="meal-item" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
+                    <div class="meal-item" data-tags="${tagString}" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
+                        <div style="font-size: 0.7rem; margin-top:2px;">${tagIcons}</div>
                         <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${fullSubtitle}
                         </small>
                     </div>`;
             });
 
-            // Button zum Hinzufügen (nur im Edit-Mode sichtbar durch CSS)
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
+            
+            // Filter anwenden (falls einer aktiv war)
+            window.filterMeals();
         }
 
+        // Neue Funktion zum Rendern der Filter-Buttons
+        function renderTagFilters() {
+            const container = document.getElementById('tagFilterContainer');
+            if(!container) return;
+            
+            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Alle</button>`;
+            
+            Object.keys(TAGS).forEach(key => {
+                const isActive = activeTagFilter === key;
+                html += `<button class="filter-tag ${isActive ? 'active' : ''}" onclick="window.setTagFilter('${key}')">${TAGS[key].label} ${TAGS[key].icon}</button>`;
+            });
+            container.innerHTML = html;
+        }
 
-        // Funktion zum schnellen Update der Farben ohne komplettes Re-Rendering
-        function updateStorageHeatmap(counts) {
-            renderStorage(counts); 
+        window.setTagFilter = (tagKey) => {
+            activeTagFilter = tagKey;
+            renderTagFilters();
+            window.filterMeals();
         }
 
         window.addNewMeal = async () => {
             const name = prompt("Name des neuen Gerichts:");
             if (name) {
                 const newId = "m_" + Date.now();
-                await setDoc(doc(db, "speisekammer", newId), { name: name });
+                await setDoc(doc(db, "speisekammer", newId), { name: name, tags: [] });
             }
         };
 
@@ -272,7 +296,6 @@
         window.assignMeal = async (mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
-            // Bestehende Logik für den Planer
             const currentData = planData[selectedDayKey];
             let currentChef = null;
             if (currentData && typeof currentData === 'object') {
@@ -287,13 +310,11 @@
             planData[selectedDayKey] = updatedEntry;
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
 
-            // --- NEU: AUTO-ARCHIV LOGIK ---
-            const parts = selectedDayKey.split('-'); // ["2026", "KW03", "Montag"]
+            const parts = selectedDayKey.split('-');
             const kwNum = parseInt(parts[1].replace('KW', ''));
             const dayName = parts[2];
             const dayIdx = daysFull.indexOf(dayName);
 
-            // Reales Datum berechnen (Basierend auf deinem baseDate)
             let planDay = new Date(baseDate);
             planDay.setDate(baseDate.getDate() + ((kwNum - 3) * 7) + dayIdx);
             planDay.setHours(0, 0, 0, 0);
@@ -301,22 +322,17 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Wenn der gewählte Tag heute oder in der Vergangenheit liegt: Ab ins Archiv!
             if (planDay <= today && mealName !== "---") {
                 await updateArchiveAutomatically(mealName, planDay, parts[1]);
             }
         };
 
-        // Schreibt ein Gericht automatisch ins Archiv, wenn es heute oder in der Vergangenheit liegt
         async function updateArchiveAutomatically(mealName, dateObj, kwLabel) {
             if (!mealName || mealName === "---") return;
-
             try {
                 const archivRef = doc(db, "historie", "archiv");
                 const ds = await getDoc(archivRef);
                 let eintraege = ds.exists() ? (ds.data().eintraege || []) : [];
-
-                // Prüfen, ob für diesen exakten Tag (auf Basis des Datums-Strings) schon ein Eintrag existiert
                 const dateStr = dateObj.toLocaleDateString('de-DE');
                 const exists = eintraege.some(e => e.date === dateStr && e.text.includes(mealName));
                 
@@ -327,14 +343,10 @@
                         timestamp: dateObj.getTime(),
                         date: dateStr
                     });
-                    // Nach Zeit sortieren (neueste zuerst für die Anzeige)
                     eintraege.sort((a, b) => b.timestamp - a.timestamp);
                     await setDoc(archivRef, { eintraege });
-                    console.log(`Auto-Archiv: ${mealName} am ${dateStr} gespeichert.`);
                 }
-            } catch (e) {
-                console.error("Fehler im Auto-Archiv:", e);
-            }
+            } catch (e) { console.error("Fehler im Auto-Archiv:", e); }
         }
 
         // --- ZUTATEN EDITOR LOGIK ---
@@ -361,6 +373,22 @@
             document.getElementById('viewZutaten').innerHTML = "<li>Lade...</li>";
             document.getElementById('viewZubereitung').innerText = "Lade...";
             document.getElementById('zutatenEditorContainer').innerHTML = "";
+            
+            // Tags Checkboxen rendern
+            const tagContainer = document.getElementById('editTagsContainer');
+            tagContainer.innerHTML = "";
+            // Aktuelle Tags aus speisekammerData holen (da wir sie dort schon geladen haben)
+            const mealData = speisekammerData.find(m => m.id === mealId);
+            const currentTags = mealData && mealData.tags ? mealData.tags : [];
+            
+            Object.keys(TAGS).forEach(key => {
+                const checked = currentTags.includes(key) ? 'checked' : '';
+                tagContainer.innerHTML += `
+                    <label style="display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; padding:5px 10px; border-radius:15px; font-size:0.8rem; cursor:pointer;">
+                        <input type="checkbox" value="${key}" ${checked} class="tag-checkbox"> ${TAGS[key].label} ${TAGS[key].icon}
+                    </label>
+                `;
+            });
 
             try {
                 const res = await getDoc(doc(db, "rezepte", mealId));
@@ -392,8 +420,18 @@
                 name: row.querySelector('.z-name').value
             })).filter(z => z.name !== "");
 
+            // Tags sammeln
+            const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
+            const selectedTags = Array.from(tagCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+
             const zubereitung = document.getElementById('editZubereitung').value;
+            
+            // 1. Rezept speichern
             await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
+            
+            // 2. Tags in Speisekammer-Dokument speichern (für Filterung wichtig)
+            await setDoc(doc(db, "speisekammer", currentRecipeId), { tags: selectedTags }, { merge: true });
+
             document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
             document.getElementById('viewZubereitung').innerText = zubereitung;
             window.cancelEdit();
@@ -496,7 +534,7 @@
             }
         };
 
-        // --- SONSTIGE FUNKTIONEN (HISTORIE/ARCHIV) ---
+        // --- SONSTIGE FUNKTIONEN ---
         window.setChef = async (key, chefLetter, event) => {
             event.stopPropagation();
             if (!isEditMode) return;
@@ -519,9 +557,20 @@
             const meals = document.querySelectorAll('.meal-item');
             
             meals.forEach(meal => {
-                // Den Namen des Gerichts aus dem ersten Span holen
                 const name = meal.querySelector('span').innerText.toLowerCase();
-                if (name.includes(searchTerm) || meal.classList.contains('add-meal-btn')) {
+                const tagsAttr = meal.dataset.tags || "";
+                const mealTags = tagsAttr.split(',');
+
+                // 1. Text Filter check
+                const matchText = name.includes(searchTerm);
+                
+                // 2. Tag Filter check
+                let matchTag = true;
+                if (activeTagFilter) {
+                    matchTag = mealTags.includes(activeTagFilter);
+                }
+
+                if ((matchText && matchTag) || meal.classList.contains('add-meal-btn')) {
                     meal.style.display = "flex";
                 } else {
                     meal.style.display = "none";
@@ -533,25 +582,18 @@
             const today = new Date();
             const diffTime = today - baseDate;
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            let index = Math.floor(diffDays / 7);
+            let index = Math.floor(diffDays / (7));
             if (index < 0) index = 0; if (index > 51) index = 51;
             return index;
         }
 
-        // Hilfsfunktion zum Aufbereiten des Textes ohne [ ] Symbole
         window.getFormattedList = () => {
             const currentKW = document.getElementById('shopTitle').innerText;
-            
-            // Wir holen alle Shop-Items
             const items = Array.from(document.querySelectorAll('.shop-item'))
-                // OPTIONAL: Nur Dinge exportieren, die noch NICHT abgehakt sind
                 .filter(item => !item.querySelector('input').checked)
                 .map(item => {
-                    // Extrahiert den reinen Text (Menge, Einheit, Name) aus dem span
                     return item.querySelector('span').innerText.replace(/\s+/g, ' ').trim();
                 });
-
-            // Rückgabe: Titel + zwei Zeilenumbrüche + die Liste mit Zeilenumbrüchen getrennt
             return `${currentKW}\n\n${items.join('\n')}`;
         };
 
@@ -565,18 +607,8 @@
             }
         };
 
-        window.exportToKeep = () => {
-            const text = encodeURIComponent(getFormattedList());
-            // Öffnet Google Keep mit dem Text in einer neuen Notiz (via URL Parameter)
-            // Hinweis: Keep übernimmt den Text am besten via "Share"-Intent auf Mobilgeräten
-            // Auf dem Desktop ist die Zwischenablage + manuelles Einfügen zuverlässiger.
-            window.open(`https://keep.google.com/#create/text=${text}`, '_blank');
-        };
-
         function init() {
             const wrapper = document.getElementById('weekWrapper');
-            
-            // Aktuelles Datum holen und Zeit auf Mitternacht setzen für exakten Vergleich
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -594,15 +626,11 @@
                 daysFull.forEach((day, i) => {
                     let d = new Date(monday); 
                     d.setDate(monday.getDate() + i);
-                    
-                    // Zeit des Schleifen-Datums für den Vergleich ebenfalls nullen
                     const checkDate = new Date(d);
                     checkDate.setHours(0, 0, 0, 0);
 
                     const ds = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
                     const key = `2026-KW${kw}-${day}`;
-                    
-                    // Wenn das Datum heute entspricht, Klasse hinzufügen
                     const isTodayClass = checkDate.getTime() === today.getTime() ? 'is-today' : '';
 
                     grid.innerHTML += `
@@ -646,29 +674,9 @@
         .week-page { min-width: 100%; box-sizing: border-box; }
         .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
         .day-card { background: white; padding: 10px; border-radius: 14px; min-height: 50px; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s; }
-        
-        /* Heute-Karte: 6px Border */
-        .day-card.is-today {
-            border: 6px solid !important;
-            z-index: 10;   /* Stellt sicher, dass der dickere Rahmen über anderen liegt */
-            font-size: 1rem !important;
-        }
-
-        /* Fall 1: Heute + Noch kein Koch gewählt (Grauer Rand) */
-        .day-card.is-today {
-            border-color: #94a3b8 !important; /* Ein schönes Grau */
-        }
-
-        /* Fall 2: Heute + Julia kocht (Pinker Rand) */
-        .day-card.is-today.chef-j {
-            border-color: var(--julia) !important;
-        }
-
-        /* Fall 3: Heute + Hendrik kocht (Blauer Rand) */
-        .day-card.is-today.chef-h {
-            border-color: var(--hendrik) !important;
-        }
-        
+        .day-card.is-today { border: 6px solid !important; z-index: 10; font-size: 1rem !important; border-color: #94a3b8 !important; }
+        .day-card.is-today.chef-j { border-color: var(--julia) !important; }
+        .day-card.is-today.chef-h { border-color: var(--hendrik) !important; }
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
         .day-card.chef-h { background: #eff6ff; border-color: var(--hendrik); }
         .chef-selector { display: none; flex-direction: column; gap: 4px; position: absolute; left: 70px; top: 50%; transform: translateY(-50%); z-index: 5; }
@@ -683,7 +691,7 @@
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
         .storage-section { width: 95%; max-width: 1800px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 15px; }
-        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+        .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 2px solid transparent; font-size: 0.8rem; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; }
         .meal-item:hover { background: #e0e7ff; }
         .edit-mode .meal-item:hover { background: var(--accent); color: white; }
         .edit-mode .day-card { cursor: pointer; }
@@ -696,8 +704,6 @@
         .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
         textarea { width: 95%; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
-        
-        /* ZUTATEN EDITOR STYLES */
         .zutat-row { display: flex; gap: 2px; margin-bottom: 5px; }
         .zutat-row input { padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; }
         .z-menge { width: 50px; }
@@ -706,69 +712,23 @@
         .z-del { background: #ef4444; color: #ffffff; border: none; border-radius: 8px; width: 25px; cursor: pointer; font-weight: bold; }
         .add-row-btn { background: #e0e7ff; color: var(--primary); border: none; padding: 10px; border-radius: 10px; width: 100%; cursor: pointer; margin-top: 5px; font-weight: 600; }
         #viewZutaten { padding-left: 20px; margin: 5px 0; color: #334155; }
-
-        /* SHOPPING LIST STYLES */
         .shop-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
         .shop-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+        
+        /* Neue Styles für Tags */
+        .filter-tag { border: 1px solid #e2e8f0; background: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; color: #64748b; }
+        .filter-tag.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-tag:hover:not(.active) { background: #f1f5f9; }
 
-        /* Heat-Map Farben für Speisekammer-Items */
-        .meal-item { 
-            background: #f8fafc; 
-            padding: 10px; 
-            border-radius: 10px; 
-            text-align: center; 
-            cursor: pointer; 
-            border: 2px solid transparent; /* Rahmen für die Farbe nutzen */
-            font-size: 0.8rem; 
-            font-weight: 500; 
-            display: flex; 
-            flex-direction: column; /* Text und Zahl untereinander */
-            align-items: center; 
-            justify-content: center;
-            transition: transform 0.2s;
-        }
-
-        /* --- Desktop Optimierungen --- */
-
-        /* 1. Container zentrieren */
-        #appSection {
-            max-width: 1800px;
-            margin: 0 auto;
-        }
-
-        /* 2. Grid-Verhalten steuern */
-        @media (min-width: 1051px) {
-            .week-grid { 
-                grid-template-columns: repeat(4, 1fr); 
-            }
-        }
-
-        @media (max-width: 1050px) { 
-            .week-grid { grid-template-columns: repeat(2, 1fr); } 
-        }
-
-        @media (max-width: 600px) { 
-            .week-grid { grid-template-columns: 1fr; } 
-            .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; }
-        }
-
-        /* 3. Karten-Styling für Desktop */
-        @media (min-width: 1024px) {
-            .day-card {
-                padding: 20px;
-            }
-            .day-info-col {
-                min-width: 90px;
-            }
-            .selected-meal {
-                font-size: 1.05rem;
-            }
-            .chef-selector { 
-                left: 95px; 
-            }
-            .storage-section { 
-                width: 98.7%;
-            }
+        @media (min-width: 1051px) { .week-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .week-grid { grid-template-columns: 1fr; } .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; } }
+        @media (min-width: 1024px) { 
+            .day-card { padding: 20px; } 
+            .day-info-col { min-width: 90px; } 
+            .selected-meal { font-size: 1.05rem; } 
+            .chef-selector { left: 95px; } 
+            .storage-section { width: 98.7%; }
         }
     </style>
 </head>
@@ -793,11 +753,14 @@
         <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
         
         <div class="storage-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin: 0;">🍴 Menüplan</h3>
-                <input type="text" id="mealSearch" placeholder="Gericht suchen..." 
-                    style="padding: 8px 12px; border-radius: 20px; border: 1px solid #e2e8f0; width: 40%;"
-                    oninput="filterMeals()">
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">🍴 Menüplan</h3>
+                    <input type="text" id="mealSearch" placeholder="Gericht suchen..." 
+                        style="padding: 8px 12px; border-radius: 20px; border: 1px solid #e2e8f0; width: 40%;"
+                        oninput="filterMeals()">
+                </div>
+                <div id="tagFilterContainer" style="display:flex; gap: 5px; flex-wrap: wrap;"></div>
             </div>
             <div class="meal-storage" id="mealStorage"></div>
         </div>
@@ -822,6 +785,9 @@
             </div>
             <div id="recipeEditor" style="display:none;">
                 <div class="recipe-box">
+                    <strong>Tags:</strong>
+                    <div id="editTagsContainer" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:10px;"></div>
+
                     <strong>Zutaten (Menge | Einheit | Lebensmittel):</strong>
                     <div id="zutatenEditorContainer"></div>
                     <button class="add-row-btn" onclick="window.addZutatRow()">+ Zutat hinzufügen</button>
