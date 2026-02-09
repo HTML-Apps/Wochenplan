@@ -12,6 +12,27 @@
     <meta name="theme-color" content="#f1f4f9" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#181b20" media="(prefers-color-scheme: dark)">
 
+    <script>
+    // Funktion, um die theme-color manuell zu setzen, falls der Browser patzt
+    function syncThemeColor() {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Wir suchen den Meta-Tag ohne media-Attribut oder erstellen einen neuen
+        let meta = document.querySelector('meta[name="theme-color"]:not([media])');
+        
+        if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = "theme-color";
+            document.head.appendChild(meta);
+        }
+        
+        meta.content = isDark ? "#181b20" : "#f1f4f9";
+    }
+
+    // Sofort ausführen und bei Wechsel lauschen
+    syncThemeColor();
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeColor);
+    </script>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
