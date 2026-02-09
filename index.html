@@ -211,7 +211,6 @@
 
             storageEl.innerHTML = "";
             
-            // Filter Buttons rendern
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
@@ -239,6 +238,8 @@
                 let tagIcons = "";
                 const itemTags = item.tags || []; 
                 if(Array.isArray(itemTags)) {
+                    // *** HIER IST DIE KORREKTUR ***
+                    // Das Label wurde entfernt, nur noch das Icon mit dem Titel wird ausgegeben.
                     itemTags.forEach(t => {
                         if(TAGS[t]) tagIcons += `<span title="${TAGS[t].label}">${TAGS[t].icon}</span>`;
                     });
@@ -249,7 +250,7 @@
                 storageEl.innerHTML += `
                     <div class="meal-item" data-tags="${tagString}" style="${dynamicStyle}" onclick="handleMealClick('${item.id}', '${item.name}')">
                         <span style="display:block; width:100%">${item.name}</span>
-                        <div style="font-size: 0.7rem; margin-top:2px;">${tagIcons}</div>
+                        <div style="font-size: 0.8rem; margin-top:2px; display: flex; gap: 4px; justify-content: center;">${tagIcons}</div>
                         <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${fullSubtitle}
                         </small>
