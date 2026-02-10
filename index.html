@@ -51,7 +51,8 @@
             "aufwändig": { label: "Aufwändig", icon: "🕰️" },
             "Fisch": { label: "Fisch", icon: "🐟" },
             "Fleisch": { label: "Fleisch", icon: "🥩" },
-            "vegetarisch": { label: "Veggie", icon: "🥕" }
+            "vegetarisch": { label: "Veggie", icon: "🥕" },
+            "Favorit": { label: "Favorit", icon: "⭐" }
         };
         let activeTagFilter = null;
 
@@ -286,7 +287,7 @@
             if(!container) return;
             
             // "Alle" Button bleibt meistens mit Text sinnvoll
-            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags: Alle</button>`;
+            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags</button>`;
             
             Object.keys(TAGS).forEach(key => {
                 const isActive = activeTagFilter === key;
