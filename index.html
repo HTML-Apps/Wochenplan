@@ -743,11 +743,18 @@
         .day-card.is-today.chef-j { border-color: var(--julia) !important; }
         .day-card.is-today.chef-h { border-color: var(--hendrik) !important; }
 
-        /* Das Emoji hinter dem Datum in der heutigen Karte */
+        /* Variante 1: Gezielt auf den Header der Karte */
+        .day-card.is-today .card-header::after {
+            content: " 📍" !important;
+            font-size: 1.2rem;
+            display: inline-block;
+        }
+        
+        /* Variante 2: Falls kein .card-header existiert, direkt am h3, aber mit höherer Priorität */
         .day-card.is-today h3::after {
             content: " 📍" !important;
             font-size: 1.2rem;
-            vertical-align: middle;
+            display: inline-block;
         }
         
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
