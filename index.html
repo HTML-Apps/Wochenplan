@@ -742,6 +742,14 @@
         .day-card.is-today { border: 6px solid !important; z-index: 10; font-size: 1rem !important; border-color: #94a3b8 !important; }
         .day-card.is-today.chef-j { border-color: var(--julia) !important; }
         .day-card.is-today.chef-h { border-color: var(--hendrik) !important; }
+
+        /* Das Emoji hinter dem Datum in der heutigen Karte */
+        .day-card.is-today h3::after {
+            content: " 📍";
+            font-size: 1.2rem;
+            vertical-align: middle;
+        }
+        
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
         .day-card.chef-h { background: #eff6ff; border-color: var(--hendrik); }
         .chef-selector { display: none; flex-direction: column; gap: 4px; position: absolute; left: 70px; top: 50%; transform: translateY(-50%); z-index: 5; }
