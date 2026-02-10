@@ -3,7 +3,7 @@
   "short_name": "Wochenplan",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#181b20",
+  "background_color": "#f1f4f9",
   "description": "Essensplaner mit Einkaufsliste",
   "icons": [
     {
