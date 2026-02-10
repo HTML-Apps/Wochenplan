@@ -758,11 +758,16 @@
         .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
 
-        /* Wir hängen die Nadel direkt an das Datum-Element */
         .day-card.is-today .day-date::after {
             content: " 📍" !important;
             display: inline-block !important;
-            font-style: normal !important; /* Falls das Datum kursiv ist */
+            animation: pin-bounce 2s infinite ease-in-out;
+            transform-origin: bottom center;
+        }
+        
+        @keyframes pin-bounce {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-3px) rotate(5deg); }
         }
         
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
