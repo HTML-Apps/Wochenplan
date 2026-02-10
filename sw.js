@@ -1,4 +1,4 @@
-const CACHE_NAME = "wochenplaner-v5";
+const CACHE_NAME = "wochenplaner-v6";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
