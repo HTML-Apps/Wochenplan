@@ -743,13 +743,6 @@
         .day-card.is-today.chef-j { border-color: var(--julia) !important; }
         .day-card.is-today.chef-h { border-color: var(--hendrik) !important; }
 
-        /* Wir setzen die Nadel direkt an den card-header der heutigen Karte */
-        .day-card.is-today .card-header::after {
-            content: " 📍" !important;
-            display: inline-block !important;
-            visibility: visible !important;
-        }
-
         .day-card.is-today {
             background-color: rgba(255, 255, 0, 0.1) !important; /* Färbt die heutige Karte leicht gelb */
         }
@@ -764,7 +757,16 @@
         .day-info-col { display: flex; flex-direction: column; min-width: 70px; border-right: 1px solid #c8d1d9; padding-right: 8px; }
         .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
+
+        /* Wir hängen die Nadel direkt an das Datum-Element */
+        .day-card.is-today .day-date::after {
+            content: " 📍" !important;
+            display: inline-block !important;
+            font-style: normal !important; /* Falls das Datum kursiv ist */
+        }
+        
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
+        
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
         .storage-section { width: 95%; max-width: 1800px; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 15px; }
