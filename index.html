@@ -27,7 +27,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         // 1. Firebase Konfiguration
@@ -403,12 +403,14 @@
 
         window.openRecipePopup = async (mealId, mealName) => {
             currentRecipeId = mealId;
+            document.getElementById('editRecipeTitle').value = mealName;
             const modal = document.getElementById('recipeModal');
             document.getElementById('recipeTitle').innerText = mealName;
             modal.style.display = "flex";
             document.getElementById('viewZutaten').innerHTML = "<li>Lade...</li>";
             document.getElementById('viewZubereitung').innerText = "Lade...";
             document.getElementById('zutatenEditorContainer').innerHTML = "";
+            document.getElementById('editRecipeTitle').value = mealName; // Diese Zeile ergänzen
             
             const tagContainer = document.getElementById('editTagsContainer');
             tagContainer.innerHTML = "";
@@ -462,6 +464,9 @@
         };
 
         window.saveRecipe = async () => {
+            const newName = document.getElementById('editRecipeTitle').value.trim();
+            if (!newName) return alert("Bitte einen Namen eingeben.");
+
             const rows = document.querySelectorAll('.zutat-row');
             const zutatenArray = Array.from(rows).map(row => ({
                 menge: row.querySelector('.z-menge').value,
@@ -471,15 +476,35 @@
 
             const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
             const selectedTags = Array.from(tagCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-
             const zubereitung = document.getElementById('editZubereitung').value;
             
+            // 1. Rezept-Details speichern
             await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
-            await setDoc(doc(db, "speisekammer", currentRecipeId), { tags: selectedTags }, { merge: true });
+            
+            // 2. Name und Tags in der Speisekammer (Hauptliste) speichern
+            await setDoc(doc(db, "speisekammer", currentRecipeId), { name: newName, tags: selectedTags }, { merge: true });
 
+            // UI Update
+            document.getElementById('recipeTitle').innerText = newName;
             document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
             document.getElementById('viewZubereitung').innerText = zubereitung;
             window.cancelEdit();
+        };
+
+        window.deleteRecipe = async () => {
+            if (confirm("Möchtest du dieses Gericht wirklich dauerhaft aus der Datenbank löschen?")) {
+                try {
+                    // Löschen aus beiden Collections
+                    await deleteDoc(doc(db, "rezepte", currentRecipeId));
+                    await deleteDoc(doc(db, "speisekammer", currentRecipeId));
+                    
+                    alert("Gericht gelöscht.");
+                    window.closeRecipeModal();
+                } catch (e) {
+                    console.error("Fehler beim Löschen:", e);
+                    alert("Fehler beim Löschen.");
+                }
+            }
         };
 
         window.editRecipe = () => {
@@ -875,18 +900,23 @@
             </div>
             <div id="recipeEditor" style="display:none;">
                 <div class="recipe-box">
+                    <strong>Name des Gerichts:</strong>
+                    <input type="text" id="editRecipeTitle" style="width: 95%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; margin-bottom: 15px; font-weight: bold;">
+
                     <strong>Tags:</strong>
                     <div id="editTagsContainer" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:10px;"></div>
 
                     <strong>Zutaten (Menge | Einheit | Lebensmittel):</strong>
                     <div id="zutatenEditorContainer"></div>
                     <button class="add-row-btn" onclick="window.addZutatRow()">+ Zutat hinzufügen</button>
+                    
                     <strong style="margin-top:15px; display:block;">Zubereitung:</strong> 
                     <textarea id="editZubereitung" style="min-height:150px;"></textarea>
                 </div>
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                    <button class="btn-hist" style="background:#ef4444" onclick="window.cancelEdit()">Abbrechen</button>
-                    <button class="btn-hist" style="background:#160f8e" onclick="window.saveRecipe()">Speichern</button>
+                <div style="display:flex; gap:10px; margin-top:20px; flex-wrap: wrap;">
+                    <button class="btn-hist" style="background:#ef4444; flex: 1;" onclick="window.cancelEdit()">Abbrechen</button>
+                    <button class="btn-hist" style="background:#160f8e; flex: 1;" onclick="window.saveRecipe()">Speichern</button>
+                    <button class="btn-hist" style="background:#000; color: #fff; width: 100%; margin-top: 10px;" onclick="window.deleteRecipe()">Gericht unwiderruflich löschen</button>
                 </div>
             </div>
         </div>
