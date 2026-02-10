@@ -4,10 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Wochenplaner</title>
-    <link rel="icon" href="cook.png" type="image/png">
+    <link rel="icon" href="cook.png" type="image/png">  
 
     <meta name="theme-color" content="#f1f4f9" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#181b20" media="(prefers-color-scheme: dark)">
+
+    <style>
+        body {
+            /* WICHTIG: Damit der Inhalt nicht hinter der Statusleiste verschwindet */
+            padding-top: env(safe-area-inset-top);
+            
+            /* Damit keine weißen Ränder entstehen */
+            margin: 0;
+            
+            /* Deine Farben (falls du Variablen nutzt, sonst nimm den Hex-Code) */
+            background-color: var(--bg-color, #f1f4f9); 
+        }
+    </style>
     
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="cook.png">
