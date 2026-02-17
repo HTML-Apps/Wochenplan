@@ -600,18 +600,16 @@
             });
 
             // Rufe hier die Funktion auf, die die Liste aus der DB liest und im HTML anzeigt
-            if (typeof showShoppingList === "function") {
-                showShoppingList(); 
-            } else {
-                //showShoppingList();
+            if (window.showShoppingList) {
+                window.showShoppingList(); 
+                console.log("Shoppingliste wurde neu gerendert!");
             }
-
-            console.log(`${listType} wurde aktualisiert!`);
             
             //alert(`${listType} wurde generiert!`);
         };
 
         let listUnsubscribe = null;
+
         window.showShoppingList = () => {
             const currentKW = kwLabels[currentWeekIndex];
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
