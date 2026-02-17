@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -55,9 +56,6 @@
             "Favorit": { label: "Favorit", icon: "⭐" }
         };
         let activeTagFilter = null;
-
-        // Variable zum Speichern des aktuellen Listen-Typs (lokal im Script)
-        let activeShopFilter = 'all';
 
         onAuthStateChanged(auth, (user) => {
             const loginSection = document.getElementById('loginSection');
@@ -526,54 +524,85 @@
         };
 
         // --- EINKAUFSLISTEN LOGIK ---
-        let listUnsubscribe = null; // Variable für den Listener (zum Aufräumen)
+        // Variable zum Speichern des aktuellen Listen-Typs (lokal im Script)
+        let activeShopFilter = 'all'; 
 
-        window.showShoppingList = () => {
+        window.generateShoppingList = async (filterChef = null) => {
+            // Aktiven Filter setzen für das Styling
+            activeShopFilter = filterChef || 'all';
+            
             const currentKW = kwLabels[currentWeekIndex];
-            
-            // --- HIER IST DER FIX ---
-            // Wir generieren die Liste SOFORT neu, basierend auf dem letzten Filter.
-            // Damit sind Änderungen im Wochenplan sofort sichtbar.
-            window.generateShoppingList(activeShopFilter); 
-            // ------------------------
-
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
-            const modal = document.getElementById('shoppingListModal');
-            const content = document.getElementById('shoppingListContent');
+            let consolidated = {};
+
+            const weekMeals = [];
+            const kwNum = parseInt(currentKW.split(' ').pop());
             
-            document.getElementById('shopTitle').innerText = `Einkaufsliste ${currentKW}`;
-            modal.style.display = "flex";
+            let listType = "Gesamtliste";
+            if (filterChef === 'J') listType = "Liste für Julia";
+            if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            // Alten Listener beenden, falls vorhanden (verhindert Speicherlecks)
-            if (listUnsubscribe) listUnsubscribe();
+            daysFull.forEach(day => {
+                const key = `2026-KW${kwNum}-${day}`;
+                const data = planData[key];
+                if (data) {
+                    let mealName = (typeof data === 'object') ? data.meal : data;
+                    let mealChef = (typeof data === 'object') ? data.chef : null;
 
-            // Auf Updates in der Datenbank hören und Liste zeichnen
-            listUnsubscribe = onSnapshot(doc(db, "einkaufslisten", shoppingListId), (ds) => {
-                if (!ds.exists()) {
-                    content.innerHTML = "<p style='text-align:center; color:#64748b;'>Lade Liste...</p>";
-                    return;
+                    if (mealName && mealName !== "---") {
+                        if (filterChef && mealChef !== filterChef) return; 
+                        weekMeals.push(mealName);
+                    }
                 }
-                
-                const data = ds.data();
-                const items = data.items || [];
-                
-                // Leere Liste abfangen
-                if (items.length === 0) {
-                     content.innerHTML = "<p style='text-align:center; color:#64748b;'>Keine Zutaten für diese Auswahl gefunden.</p>";
-                     return;
-                }
-
-                content.innerHTML = items.map((item, index) => `
-                    <div class="shop-item">
-                        <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="window.toggleListItem('${shoppingListId}', ${index})">
-                        <span style="${item.checked ? 'text-decoration:line-through; color:#94a3b8;' : ''}">
-                            <strong>${item.menge > 0 ? item.menge : ''} ${item.einheit}</strong> ${item.name}
-                        </span>
-                    </div>
-                `).join('');
             });
+
+            // --- NEU: Visuelles Feedback der Buttons aktualisieren ---
+            document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+                btn.style.border = "2px solid transparent";
+                btn.style.opacity = "0.6";
+                btn.style.transform = "scale(0.95)";
+            });
+            const activeBtn = document.getElementById(`btn-shop-${activeShopFilter}`);
+            if(activeBtn) {
+                activeBtn.style.border = "2px solid black"; // Markante Umrandung
+                activeBtn.style.opacity = "1";
+                activeBtn.style.transform = "scale(1.05)";
+                activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
+            }
+
+            if (weekMeals.length === 0) {
+                alert(`Keine Gerichte für ${listType} gefunden!`);
+                return;
+            }
+
+            // ... (Rest deiner Zutatensammlung-Logik bleibt gleich)
+            for (const mealName of weekMeals) {
+                const mealObj = speisekammerData.find(m => m.name === mealName);
+                if (mealObj) {
+                    const res = await getDoc(doc(db, "rezepte", mealObj.id));
+                    if (res.exists() && Array.isArray(res.data().zutaten)) {
+                        res.data().zutaten.forEach(z => {
+                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                            if (!consolidated[key]) {
+                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: false };
+                            }
+                            consolidated[key].menge += parseFloat(z.menge || 0);
+                        });
+                    }
+                }
+            }
+
+            await setDoc(doc(db, "einkaufslisten", shoppingListId), {
+                items: Object.values(consolidated),
+                kw: currentKW,
+                type: listType,
+                updatedAt: Date.now()
+            });
+            
+            //alert(`${listType} wurde generiert!`);
         };
 
+        let listUnsubscribe = null;
         window.showShoppingList = () => {
             const currentKW = kwLabels[currentWeekIndex];
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
@@ -824,7 +853,7 @@
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; max-height: 95vh; overflow-y: auto; }
+        .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; height: 95vh; overflow-y: auto; }
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
         textarea { width: 95%; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
         .zutat-row { display: flex; gap: 2px; margin-bottom: 5px; }
