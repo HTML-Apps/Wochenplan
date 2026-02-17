@@ -598,6 +598,15 @@
                 type: listType,
                 updatedAt: Date.now()
             });
+
+            // Rufe hier die Funktion auf, die die Liste aus der DB liest und im HTML anzeigt
+            if (typeof showShoppingList === "function") {
+                showShoppingList(); 
+            } else {
+                //showShoppingList();
+            }
+
+            console.log(`${listType} wurde aktualisiert!`);
             
             //alert(`${listType} wurde generiert!`);
         };
