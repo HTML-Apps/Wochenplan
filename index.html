@@ -973,7 +973,7 @@
 
     <div id="shoppingListModal" class="modal" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
-            <h2 id="shopTitle" onclick="window.generateShoppingList()" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
+            <h2 id="shopTitle" onclick="window.generateShoppingList()" onclick="window.generateShoppingList('H')" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
             
             <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: space-between;">
                 <button id="btn-shop-all" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList()" style="font-size:0.75rem; flex: 1; padding: 10px 5px;">Alle</button>
