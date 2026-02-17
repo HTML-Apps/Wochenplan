@@ -523,17 +523,16 @@
         };
 
         // --- EINKAUFSLISTEN LOGIK ---
-        // Variable zum Speichern des aktuellen Listen-Typs (lokal im Script)
-        let activeShopFilter = 'all'; 
+        // Diese Variable speichert, welcher Button gerade aktiv leuchten soll
+        let currentActiveFilter = 'all';
 
         window.generateShoppingList = async (filterChef = null) => {
-            // Aktiven Filter setzen für das Styling
-            activeShopFilter = filterChef || 'all';
-            
+            currentActiveFilter = filterChef || 'all';
             const currentKW = kwLabels[currentWeekIndex];
-            const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
+            // WICHTIG: Die ID muss exakt so bleiben, wie sie vorher war
+            const shoppingListId = `list-2026-${currentKW.replace(/\s+/g, '')}`;
+            
             let consolidated = {};
-
             const weekMeals = [];
             const kwNum = parseInt(currentKW.split(' ').pop());
             
@@ -541,6 +540,7 @@
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
+            // 1. Gerichte sammeln & filtern
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
@@ -555,26 +555,15 @@
                 }
             });
 
-            // --- NEU: Visuelles Feedback der Buttons aktualisieren ---
-            document.querySelectorAll('.shop-filter-btn').forEach(btn => {
-                btn.style.border = "2px solid transparent";
-                btn.style.opacity = "0.6";
-                btn.style.transform = "scale(0.95)";
-            });
-            const activeBtn = document.getElementById(`btn-shop-${activeShopFilter}`);
-            if(activeBtn) {
-                activeBtn.style.border = "2px solid black"; // Markante Umrandung
-                activeBtn.style.opacity = "1";
-                activeBtn.style.transform = "scale(1.05)";
-                activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
-            }
+            // Visuelles Feedback der Buttons sofort setzen
+            updateFilterButtonStyles();
 
             if (weekMeals.length === 0) {
                 alert(`Keine Gerichte für ${listType} gefunden!`);
                 return;
             }
 
-            // ... (Rest deiner Zutatensammlung-Logik bleibt gleich)
+            // 2. Zutaten aus den Rezepten holen
             for (const mealName of weekMeals) {
                 const mealObj = speisekammerData.find(m => m.name === mealName);
                 if (mealObj) {
@@ -591,15 +580,30 @@
                 }
             }
 
+            // 3. In Firestore speichern (Das löst automatisch das Neuzeichnen der Liste aus)
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
                 items: Object.values(consolidated),
                 kw: currentKW,
                 type: listType,
+                filter: currentActiveFilter, // Merken für das Wiederöffnen
                 updatedAt: Date.now()
             });
-            
-            alert(`${listType} wurde generiert!`);
         };
+
+        // Hilfsfunktion für das Styling
+        function updateFilterButtonStyles() {
+            document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+                btn.style.border = "2px solid transparent";
+                btn.style.opacity = "0.5";
+                btn.style.transform = "scale(0.95)";
+            });
+            const activeBtn = document.getElementById(`btn-shop-${currentActiveFilter}`);
+            if(activeBtn) {
+                activeBtn.style.border = "2px solid #333";
+                activeBtn.style.opacity = "1";
+                activeBtn.style.transform = "scale(1.05)";
+            }
+        }
 
         let listUnsubscribe = null;
         window.showShoppingList = () => {
@@ -967,25 +971,18 @@
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2 id="shopTitle" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
             
-            <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; justify-content: center; padding: 5px;">
-                <button id="btn-shop-all" class="btn-hist shop-filter-btn" 
-                        onclick="window.generateShoppingList()" 
-                        style="font-size:0.8rem; flex: 1; transition: all 0.2s;">
-                    Alle
-                </button>
-                <button id="btn-shop-J" class="btn-hist shop-filter-btn" 
-                        onclick="window.generateShoppingList('J')" 
-                        style="font-size:0.8rem; flex: 1; background-color: var(--julia); transition: all 0.2s;">
-                    Julia
-                </button>
-                <button id="btn-shop-H" class="btn-hist shop-filter-btn" 
-                        onclick="window.generateShoppingList('H')" 
-                        style="font-size:0.8rem; flex: 1; background-color: var(--hendrik); transition: all 0.2s;">
-                    Hendrik
-                </button>
+            <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: space-between;">
+                <button id="btn-shop-all" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList()" style="font-size:0.75rem; flex: 1; padding: 10px 5px;">Alle</button>
+                <button id="btn-shop-J" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('J')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--julia);">Julia</button>
+                <button id="btn-shop-H" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('H')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--hendrik);">Hendrik</button>
             </div>
-            <button class="btn-hist" style="background:#64748b; margin-top:20px;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
-            <button class="btn-hist" onclick="window.copyToClipboard()" style="background: #10b981;">Kopieren</button>
+
+            <div id="shoppingListContent"></div>
+            
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-hist" style="background:#64748b; flex:1;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
+                <button class="btn-hist" onclick="window.copyToClipboard()" style="background: #10b981; flex:1;">Kopieren</button>
+            </div>
         </div>
     </div>
 
