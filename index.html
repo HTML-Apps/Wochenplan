@@ -526,46 +526,67 @@
         // Diese Variable speichert, welcher Button gerade aktiv leuchten soll
         let currentActiveFilter = 'all';
 
-        window.showShoppingList = () => {
+        window.generateShoppingList = async (filterChef = null) => {
+            currentActiveFilter = filterChef || 'all';
             const currentKW = kwLabels[currentWeekIndex];
-            // Wir triggern beim Öffnen sofort die Generierung mit dem aktuellen Filter
-            // Falls noch kein Filter gesetzt wurde, nehmen wir 'all'
-            window.generateShoppingList(currentActiveFilter === 'all' ? null : currentActiveFilter);
-            
+            // WICHTIG: Die ID muss exakt so bleiben, wie sie vorher war
             const shoppingListId = `list-2026-${currentKW.replace(/\s+/g, '')}`;
-            const modal = document.getElementById('shoppingListModal');
-            const content = document.getElementById('shoppingListContent');
+            
+            let consolidated = {};
+            const weekMeals = [];
+            const kwNum = parseInt(currentKW.split(' ').pop());
+            
+            let listType = "Gesamtliste";
+            if (filterChef === 'J') listType = "Liste für Julia";
+            if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            modal.style.display = 'flex';
+            // 1. Gerichte sammeln & filtern
+            daysFull.forEach(day => {
+                const key = `2026-KW${kwNum}-${day}`;
+                const data = planData[key];
+                if (data) {
+                    let mealName = (typeof data === 'object') ? data.meal : data;
+                    let mealChef = (typeof data === 'object') ? data.chef : null;
 
-            // Der Listener bleibt bestehen, um die Anzeige zu aktualisieren, 
-            // sobald die oben getriggerte Generierung fertig ist.
-            onSnapshot(doc(db, "einkaufslisten", shoppingListId), (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    let html = `<ul style="list-style:none; padding:0;">`;
-                    data.items.forEach((item, index) => {
-                        html += `
-                            <li style="display:flex; align-items:center; gap:10px; margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;">
-                                <input type="checkbox" ${item.checked ? 'checked' : ''} 
-                                    onchange="window.toggleShopItem('${shoppingListId}', ${index}, this.checked)"
-                                    style="width:20px; height:20px;">
-                                <span style="${item.checked ? 'text-decoration:line-through; color:gray;' : ''}">
-                                    ${item.menge > 0 ? item.menge + ' ' : ''}${item.einheit} ${item.name}
-                                </span>
-                            </li>`;
-                    });
-                    html += `</ul>`;
-                    content.innerHTML = html;
-                    
-                    // Button Styling aktualisieren, falls der Filter in der DB steht
-                    if(data.filter) {
-                        currentActiveFilter = data.filter;
-                        updateFilterButtonStyles();
+                    if (mealName && mealName !== "---") {
+                        if (filterChef && mealChef !== filterChef) return; 
+                        weekMeals.push(mealName);
                     }
-                } else {
-                    content.innerHTML = "<p>Noch keine Liste für diese Woche generiert.</p>";
                 }
+            });
+
+            // Visuelles Feedback der Buttons sofort setzen
+            updateFilterButtonStyles();
+
+            if (weekMeals.length === 0) {
+                alert(`Keine Gerichte für ${listType} gefunden!`);
+                return;
+            }
+
+            // 2. Zutaten aus den Rezepten holen
+            for (const mealName of weekMeals) {
+                const mealObj = speisekammerData.find(m => m.name === mealName);
+                if (mealObj) {
+                    const res = await getDoc(doc(db, "rezepte", mealObj.id));
+                    if (res.exists() && Array.isArray(res.data().zutaten)) {
+                        res.data().zutaten.forEach(z => {
+                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                            if (!consolidated[key]) {
+                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: false };
+                            }
+                            consolidated[key].menge += parseFloat(z.menge || 0);
+                        });
+                    }
+                }
+            }
+
+            // 3. In Firestore speichern (Das löst automatisch das Neuzeichnen der Liste aus)
+            await setDoc(doc(db, "einkaufslisten", shoppingListId), {
+                items: Object.values(consolidated),
+                kw: currentKW,
+                type: listType,
+                filter: currentActiveFilter, // Merken für das Wiederöffnen
+                updatedAt: Date.now()
             });
         };
 
@@ -950,18 +971,25 @@
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2 id="shopTitle" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
             
-            <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: space-between;">
-                <button id="btn-shop-all" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList()" style="font-size:0.75rem; flex: 1; padding: 10px 5px;">Alle</button>
-                <button id="btn-shop-J" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('J')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--julia);">Julia</button>
-                <button id="btn-shop-H" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('H')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--hendrik);">Hendrik</button>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; justify-content: center; padding: 5px;">
+                <button id="btn-shop-all" class="btn-hist shop-filter-btn" 
+                        onclick="window.generateShoppingList()" 
+                        style="font-size:0.8rem; flex: 1; transition: all 0.2s;">
+                    Alle
+                </button>
+                <button id="btn-shop-J" class="btn-hist shop-filter-btn" 
+                        onclick="window.generateShoppingList('J')" 
+                        style="font-size:0.8rem; flex: 1; background-color: var(--julia); transition: all 0.2s;">
+                    Julia
+                </button>
+                <button id="btn-shop-H" class="btn-hist shop-filter-btn" 
+                        onclick="window.generateShoppingList('H')" 
+                        style="font-size:0.8rem; flex: 1; background-color: var(--hendrik); transition: all 0.2s;">
+                    Hendrik
+                </button>
             </div>
-
-            <div id="shoppingListContent"></div>
-            
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn-hist" style="background:#64748b; flex:1;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
-                <button class="btn-hist" onclick="window.copyToClipboard()" style="background: #10b981; flex:1;">Kopieren</button>
-            </div>
+            <button class="btn-hist" style="background:#64748b; margin-top:20px;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
+            <button class="btn-hist" onclick="window.copyToClipboard()" style="background: #10b981;">Kopieren</button>
         </div>
     </div>
 
