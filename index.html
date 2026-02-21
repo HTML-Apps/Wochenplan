@@ -287,19 +287,18 @@
             const container = document.getElementById('tagFilterContainer');
             if(!container) return;
             
-            // "Alle/Tags" Button ist aktiv, wenn das Array leer ist
-            let html = `<button class="filter-tag ${activeTagFilters.length === 0 ? 'active' : ''}" onclick="window.toggleTagFilter(null)">Tags (Alle)</button>`;
+            // "Alle" Button bleibt meistens mit Text sinnvoll
+            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags</button>`;
             
             Object.keys(TAGS).forEach(key => {
-                // Prüfen, ob der aktuelle Tag-Key im Array der aktiven Filter liegt
-                const isActive = activeTagFilters.includes(key);
+                const isActive = activeTagFilter === key;
                 const tag = TAGS[key];
 
                 // Wir nutzen aria-label für Screenreader und title für den Tooltip beim Hovern
                 html += `
                     <button 
                         class="filter-tag ${isActive ? 'active' : ''}" 
-                        onclick="window.toggleTagFilter('${key}')" 
+                        onclick="window.setTagFilter('${key}')" 
                         title="${tag.label}"
                         aria-label="${tag.label}">
                         ${tag.icon}
@@ -309,33 +308,11 @@
             container.innerHTML = html;
         }
 
-        // Neue Toggle-Funktion statt der einfachen Set-Funktion
-        window.toggleTagFilter = (tagKey) => {
-            if (tagKey === null) {
-                // Reset: Alle Tags abwählen
-                activeTagFilters = [];
-            } else {
-                // Prüfen, ob der Tag schon ausgewählt ist
-                const index = activeTagFilters.indexOf(tagKey);
-                
-                if (index > -1) {
-                    // Wenn er schon aktiv ist, entferne ihn aus dem Array (Toggle Off)
-                    activeTagFilters.splice(index, 1);
-                } else {
-                    // Wenn er noch nicht aktiv ist, füge ihn hinzu (Toggle On)
-                    activeTagFilters.push(tagKey);
-                }
-            }
-            
-            renderTagFilters();
-            window.filterMeals(); // Ruft deine Filter-Logik auf
-        }
-
-        /*window.setTagFilter = (tagKey) => {
+        window.setTagFilter = (tagKey) => {
             activeTagFilter = tagKey;
             renderTagFilters();
             window.filterMeals();
-        }*/
+        }
 
         window.addNewMeal = async () => {
             const name = prompt("Name des neuen Gerichts:");
@@ -693,30 +670,32 @@
             const meals = document.querySelectorAll('.meal-item');
             
             meals.forEach(meal => {
-                // Den "Hinzufügen" Button ignorieren wir direkt zu Beginn (wird über CSS gesteuert)
-                if (meal.classList.contains('add-meal-btn')) {
-                    return; 
-                }
-
                 // 1. Den Namen des Gerichts holen
                 const nameEl = meal.querySelector('span');
-                if (!nameEl) return; 
+                if (!nameEl) return; // Falls es der "+ Hinzufügen" Button ist
                 const name = nameEl.innerText.toLowerCase();
 
                 // 2. Die Tags aus dem data-Attribut holen und in ein Array umwandeln
                 const tagsAttr = meal.dataset.tags || "";
-                // Wir splitten am Komma, entfernen Leerzeichen und ignorieren leere Strings
-                const mealTags = tagsAttr.split(',').map(t => t.trim()).filter(t => t !== "");
+                // Wir splitten am Komma und entfernen etwaige Leerzeichen
+                const mealTags = tagsAttr.split(',').map(t => t.trim());
 
                 // 3. Match-Prüfung für Text
                 const matchText = name.includes(searchTerm);
                 
-                // 4. Match-Prüfung für Tags (UND-Bedingung)
-                // .every() gibt true zurück, wenn JEDER ausgewählte Tag in mealTags gefunden wird.
-                // Praktisch: Wenn activeTagFilters leer ist, gibt .every() automatisch true zurück!
-                const matchTag = activeTagFilters.every(filterTag => mealTags.includes(filterTag));
+                // 4. Match-Prüfung für Tags
+                let matchTag = true;
+                if (activeTagFilter !== null) {
+                    // Prüfen, ob der aktive Filter-Key im Array der Gerichts-Tags existiert
+                    matchTag = mealTags.includes(activeTagFilter);
+                }
 
                 // 5. Anzeigen oder Verstecken
+                if (meal.classList.contains('add-meal-btn')) {
+                    // Den "Hinzufügen" Button zeigen wir nur im Edit-Mode (wird über CSS gesteuert)
+                    return; 
+                }
+
                 if (matchText && matchTag) {
                     meal.style.display = "flex";
                 } else {
@@ -1011,6 +990,5 @@
             </div>
         </div>
     </div>
-
 </body>
 </html>
