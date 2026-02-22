@@ -386,7 +386,7 @@
             
             // "Alle" Button (leert das Array)
             let html = `<button class="filter-tag ${activeTagFilters.length === 0 ? 'active' : ''}" 
-                        onclick="window.setTagFilter(null)">Tags</button>`;
+                        onclick="window.setTagFilter(null)">Tags: Alle</button>`;
             
             Object.keys(TAGS).forEach(key => {
                 // Prüfen, ob dieser Tag aktuell im Array der aktiven Filter ist
