@@ -112,13 +112,24 @@
             }
         };
 
-        // Öffnet/Schließt das kleine Pop-up
+        // Variable zum Speichern des aktuellen Zeitstempels der Änderung
+        let lastKnownEditTime = 0;
+
+        // Die Funktion zum Öffnen des Pop-ups und Ausblenden des Punkts
         window.toggleLastEditPopup = (event) => {
             event.stopPropagation();
             const popup = document.getElementById('lastEditPopup');
+            const dot = document.getElementById('notificationDot');
+
             if (popup.style.display === 'none') {
                 popup.style.display = 'block';
-                // Pop-up schließen, wenn man irgendwo anders hinklickt
+                
+                // Markiere als gelesen: Speichere den aktuellen Zeitstempel lokal im Browser
+                localStorage.setItem('lastReadEdit', lastKnownEditTime.toString());
+                
+                // Punkt sofort ausblenden
+                dot.style.display = 'none';
+
                 document.addEventListener('click', function closePopup() {
                     popup.style.display = 'none';
                     document.removeEventListener('click', closePopup);
@@ -204,25 +215,32 @@
 
 
 
-            // Listener für Metadaten (wer hat zuletzt bearbeitet?)
+            // --- Der angepasste Listener ---
             onSnapshot(doc(db, "planung", "metadata"), (ds) => {
                 if (ds.exists()) {
                     const data = ds.data();
                     if (data.lastEditTime && data.lastEditBy) {
+                        lastKnownEditTime = data.lastEditTime; // Global speichern für toggle-Funktion
+                        
                         const name = USER_MAP[data.lastEditBy] || "Jemand";
                         const editDate = new Date(data.lastEditTime);
-                        const now = new Date();
-                        const hoursDiff = (now - editDate) / (1000 * 60 * 60);
-
-                        // Zeit formatieren (z.B. "Mo. 15:45 Uhr")
+                        
+                        // Formatierung
                         const dayNames = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
                         const dayStr = dayNames[editDate.getDay()];
                         const timeStr = editDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
                         document.getElementById('lastEditPopup').innerText = `zuletzt bearbeitet von: ${name} (${dayStr}. ${timeStr} Uhr)`;
 
-                        // Roter Punkt: Nur anzeigen, wenn die Änderung in den letzten 24h lag
-                        if (hoursDiff <= 24) {
+                        // LOGIK FÜR DEN PUNKT:
+                        const lastRead = localStorage.getItem('lastReadEdit') || 0;
+                        const now = Date.now();
+                        const hoursDiff = (now - data.lastEditTime) / (1000 * 60 * 60);
+
+                        // Zeige den Punkt NUR, wenn:
+                        // 1. Die Änderung jünger als 24 Stunden ist
+                        // UND 2. Der gespeicherte Zeitstempel im Browser kleiner ist als der in der DB (also was Neues passiert ist)
+                        if (hoursDiff <= 24 && data.lastEditTime > parseInt(lastRead)) {
                             document.getElementById('notificationDot').style.display = 'inline-block';
                         } else {
                             document.getElementById('notificationDot').style.display = 'none';
@@ -989,20 +1007,35 @@
         /* Das Pop-up für die Anzeige "zuletzt bearbeitet von..." */
         .last-edit-popup {
             position: absolute;
-            top: 100%; /* Direkt unter der h1 */
+            top: 50px; /* Ein Stück unter der Schrift */
             left: 50%;
             transform: translateX(-50%);
             background: white;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 8px 14px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 10px 16px;
             border-radius: 12px;
-            font-size: 0.8rem;
-            color: #475569;
+            font-size: 0.85rem;
+            color: #1e293b;
             white-space: nowrap;
-            font-weight: 500; /* Überschreibt das Fettgedruckte der h1 */
-            z-index: 1000;
+            font-weight: 500;
+            z-index: 9999; /* Sehr hoch, damit es über den Controls liegt */
             cursor: default;
+            pointer-events: auto; /* Klickbar machen */
+        }
+
+        /* Ein kleiner Pfeil oben am Pop-up (optional, sieht schöner aus) */
+        .last-edit-popup::before {
+            content: "";
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            border-top: 1px solid #e2e8f0;
         }
     </style>
 </head>
