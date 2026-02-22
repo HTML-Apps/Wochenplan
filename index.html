@@ -55,7 +55,7 @@
             "vegetarisch": { label: "Veggie", icon: "🥕" },
             "Favorit": { label: "Favorit", icon: "⭐" }
         };
-        let activeTagFilter = [];
+        let activeTagFilters = [];
 
         onAuthStateChanged(auth, (user) => {
             const loginSection = document.getElementById('loginSection');
@@ -781,30 +781,29 @@
             const meals = document.querySelectorAll('.meal-item');
             
             meals.forEach(meal => {
-                // Den "+ Hinzufügen" Button überspringen
+                // Den "+ Hinzufügen" Button immer überspringen
                 if (meal.classList.contains('add-meal-btn')) return;
 
-                // 1. Den Namen des Gerichts holen
+                // 1. Name holen
                 const nameEl = meal.querySelector('span');
-                if (!nameEl) return;
-                const name = nameEl.innerText.toLowerCase();
+                const name = nameEl ? nameEl.innerText.toLowerCase() : "";
 
-                // 2. Die Tags aus dem data-Attribut holen (Array erstellen)
-                const tagsAttr = meal.dataset.tags || "";
+                // 2. Tags aus dem data-Attribut holen
+                const tagsAttr = meal.getAttribute('data-tags') || "";
+                // Erstellt ein Array, entfernt Leerzeichen und filtert leere Einträge
                 const mealTags = tagsAttr.split(',').map(t => t.trim()).filter(t => t !== "");
 
-                // 3. Match-Prüfung für Text
+                // 3. Text-Suche
                 const matchText = name.includes(searchTerm);
                 
-                // 4. Match-Prüfung für Tags (Mehrfachauswahl)
+                // 4. Tag-Suche (Multi-Select AND-Logik)
                 let matchTag = true;
                 if (activeTagFilters.length > 0) {
-                    // Ein Gericht wird nur angezeigt, wenn es ALLE aktiven Filter-Tags besitzt (UND-Logik)
-                    matchTag = activeTagFilters.every(filterKey => mealTags.includes(filterKey));
+                    // Das Gericht muss JEDEN der aktiven Filter-Keys in seinen mealTags haben
+                    matchTag = activeTagFilters.every(f => mealTags.includes(f));
                 }
 
-                // 5. Anzeigen oder Verstecken
-                // Nur wenn Textsuche UND Tag-Filter passen, wird das Gericht angezeigt
+                // 5. Sichtbarkeit setzen
                 if (matchText && matchTag) {
                     meal.style.display = "flex";
                 } else {
