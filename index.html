@@ -55,7 +55,7 @@
             "vegetarisch": { label: "Veggie", icon: "🥕" },
             "Favorit": { label: "Favorit", icon: "⭐" }
         };
-        let activeTagFilter = null;
+        let activeTagFilter = [];
 
         onAuthStateChanged(auth, (user) => {
             const loginSection = document.getElementById('loginSection');
@@ -302,7 +302,7 @@
                         const kwNum = parseInt(parts[1].replace('KW', ''));
                         const dayIdx = daysFull.indexOf(parts[2]);
                         
-                        let planDay = new Date(baseDate); // Verwende baseDate für korrekte Jahresberechnung
+                        let planDay = new Date(baseDate); 
                         planDay.setDate(baseDate.getDate() + ((kwNum - 3) * 7) + dayIdx);
                         planDay.setHours(0, 0, 0, 0);
 
@@ -322,13 +322,16 @@
 
             storageEl.innerHTML = "";
             
+            // WICHTIG: Hier rufen wir die angepasste renderTagFilters auf
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
+                if (item.name === "---") return; // Platzhalter überspringen wir beim Zeichnen oft oder behandeln ihn separat
+
                 const count = counts[item.name] || 0;
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
-                let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
+                let statusText = count > 0 ? `${count}x geplant` : 'neu';
                 
                 let timeLabel = "";
                 if (lastCookedTimestamp[item.name]) {
@@ -343,10 +346,10 @@
                     }
                 }
 
-                const fullSubtitle = (timeLabel && item.name !== "---") ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
+                const fullSubtitle = timeLabel ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
 
-                // Tags Icons vorbereiten
-                let tagIconsHtml = ""; // Umbenannt, um Verwechslung mit Array zu vermeiden
+                // Tags Icons für die Anzeige im Item vorbereiten
+                let tagIconsHtml = ""; 
                 const itemTags = item.tags || []; 
                 if(Array.isArray(itemTags)) {
                     itemTags.forEach(t => {
@@ -354,25 +357,23 @@
                     });
                 }
 
-                // Wichtige Änderung: Das data-tags Attribut hinzufügen
                 const tagStringForDataAttr = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
-                // ${fullSubtitle} ${tagIconsHtml} wenn das kleine Tag-Icon in der Meal-View angezeigt werden soll
                 storageEl.innerHTML += `
                     <div class="meal-item" 
-                         style="${dynamicStyle}" 
-                         onclick="handleMealClick('${item.id}', '${item.name}')"
-                         data-tags="${tagStringForDataAttr}">
+                        style="${dynamicStyle}" 
+                        onclick="handleMealClick('${item.id}', '${item.name}')"
+                        data-tags="${tagStringForDataAttr}">
                         <span style="display:block; width:100%">${item.name}</span>
                         <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            ${fullSubtitle}
+                            ${fullSubtitle} ${tagIconsHtml}
                         </small>
                     </div>`;
             });
 
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
             
-            // Initialen Filter nach dem Rendern anwenden
+            // WICHTIG: Filter sofort anwenden, falls noch Tags aktiv sind
             window.filterMeals();
         }
 
@@ -381,14 +382,15 @@
             const container = document.getElementById('tagFilterContainer');
             if(!container) return;
             
-            // "Alle" Button bleibt meistens mit Text sinnvoll
-            let html = `<button class="filter-tag ${activeTagFilter === null ? 'active' : ''}" onclick="window.setTagFilter(null)">Tags</button>`;
+            // "Alle" Button (leert das Array)
+            let html = `<button class="filter-tag ${activeTagFilters.length === 0 ? 'active' : ''}" 
+                        onclick="window.setTagFilter(null)">Tags</button>`;
             
             Object.keys(TAGS).forEach(key => {
-                const isActive = activeTagFilter === key;
+                // Prüfen, ob dieser Tag aktuell im Array der aktiven Filter ist
+                const isActive = activeTagFilters.includes(key);
                 const tag = TAGS[key];
 
-                // Wir nutzen aria-label für Screenreader und title für den Tooltip beim Hovern
                 html += `
                     <button 
                         class="filter-tag ${isActive ? 'active' : ''}" 
@@ -402,11 +404,21 @@
             container.innerHTML = html;
         }
 
-        window.setTagFilter = (tagKey) => {
-            activeTagFilter = tagKey;
+        window.setTagFilter = (key) => {
+            if (key === null) {
+                activeTagFilters = []; // Reset
+            } else {
+                if (activeTagFilters.includes(key)) {
+                    // Wenn schon ausgewählt -> entfernen
+                    activeTagFilters = activeTagFilters.filter(t => t !== key);
+                } else {
+                    // Wenn neu -> hinzufügen
+                    activeTagFilters.push(key);
+                }
+            }
             renderTagFilters();
-            window.filterMeals();
-        }
+            window.filterMeals(); // Filterung anstoßen
+        };
 
         window.addNewMeal = async () => {
             const name = prompt("Name des neuen Gerichts:");
@@ -769,32 +781,30 @@
             const meals = document.querySelectorAll('.meal-item');
             
             meals.forEach(meal => {
+                // Den "+ Hinzufügen" Button überspringen
+                if (meal.classList.contains('add-meal-btn')) return;
+
                 // 1. Den Namen des Gerichts holen
                 const nameEl = meal.querySelector('span');
-                if (!nameEl) return; // Falls es der "+ Hinzufügen" Button ist
+                if (!nameEl) return;
                 const name = nameEl.innerText.toLowerCase();
 
-                // 2. Die Tags aus dem data-Attribut holen und in ein Array umwandeln
+                // 2. Die Tags aus dem data-Attribut holen (Array erstellen)
                 const tagsAttr = meal.dataset.tags || "";
-                // Wir splitten am Komma und entfernen etwaige Leerzeichen
-                const mealTags = tagsAttr.split(',').map(t => t.trim());
+                const mealTags = tagsAttr.split(',').map(t => t.trim()).filter(t => t !== "");
 
                 // 3. Match-Prüfung für Text
                 const matchText = name.includes(searchTerm);
                 
-                // 4. Match-Prüfung für Tags
+                // 4. Match-Prüfung für Tags (Mehrfachauswahl)
                 let matchTag = true;
-                if (activeTagFilter !== null) {
-                    // Prüfen, ob der aktive Filter-Key im Array der Gerichts-Tags existiert
-                    matchTag = mealTags.includes(activeTagFilter);
+                if (activeTagFilters.length > 0) {
+                    // Ein Gericht wird nur angezeigt, wenn es ALLE aktiven Filter-Tags besitzt (UND-Logik)
+                    matchTag = activeTagFilters.every(filterKey => mealTags.includes(filterKey));
                 }
 
                 // 5. Anzeigen oder Verstecken
-                if (meal.classList.contains('add-meal-btn')) {
-                    // Den "Hinzufügen" Button zeigen wir nur im Edit-Mode (wird über CSS gesteuert)
-                    return; 
-                }
-
+                // Nur wenn Textsuche UND Tag-Filter passen, wird das Gericht angezeigt
                 if (matchText && matchTag) {
                     meal.style.display = "flex";
                 } else {
