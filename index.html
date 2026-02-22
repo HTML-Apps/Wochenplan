@@ -285,6 +285,7 @@
             const totalMeals = speisekammerData.length;
             const storageHeader = document.querySelector('.storage-section h3');
             if (storageHeader) {
+                // -1 wegen des Platzhalters "---"
                 storageHeader.innerText = `🍴 Menüplan (${totalMeals - 1})`;
             }
 
@@ -292,6 +293,7 @@
             const now = new Date();
             now.setHours(0, 0, 0, 0);
 
+            // Berechnung der Historie (zuletzt gekocht)
             Object.keys(planData).forEach(key => {
                 const data = planData[key];
                 let mealName = (data && typeof data === 'object') ? data.meal : data;
@@ -322,16 +324,15 @@
 
             storageEl.innerHTML = "";
             
-            // WICHTIG: Hier rufen wir die angepasste renderTagFilters auf
+            // Filter-Buttons oben drüber rendern
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
-                if (item.name === "---") return; // Platzhalter überspringen wir beim Zeichnen oft oder behandeln ihn separat
-
                 const count = counts[item.name] || 0;
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
-                let statusText = count > 0 ? `${count}x geplant` : 'neu';
+                // Logik für den Status-Text (Platzhalter vs. Häufigkeit)
+                let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
                 let timeLabel = "";
                 if (lastCookedTimestamp[item.name]) {
@@ -346,19 +347,13 @@
                     }
                 }
 
-                const fullSubtitle = timeLabel ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
+                // Subtitle zusammenbauen (zuletzt gekocht Info nur wenn kein Platzhalter)
+                const fullSubtitle = (timeLabel && item.name !== "---") ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
 
-                // Tags Icons für die Anzeige im Item vorbereiten
-                let tagIconsHtml = ""; 
-                const itemTags = item.tags || []; 
-                if(Array.isArray(itemTags)) {
-                    itemTags.forEach(t => {
-                        if(TAGS[t]) tagIconsHtml += `<span title="${TAGS[t].label}">${TAGS[t].icon}</span>`;
-                    });
-                }
-
+                // Tags im Hintergrund für die Filter-Logik vorbereiten (werden nicht angezeigt!)
                 const tagStringForDataAttr = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
+                // Meal-Item HTML (ohne Icons in der Anzeige)
                 storageEl.innerHTML += `
                     <div class="meal-item" 
                         style="${dynamicStyle}" 
@@ -366,14 +361,15 @@
                         data-tags="${tagStringForDataAttr}">
                         <span style="display:block; width:100%">${item.name}</span>
                         <small style="margin-top:2px; opacity:0.7; font-size:0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            ${fullSubtitle} ${tagIconsHtml}
+                            ${fullSubtitle}
                         </small>
                     </div>`;
             });
 
+            // Add-Button am Ende hinzufügen
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
             
-            // WICHTIG: Filter sofort anwenden, falls noch Tags aktiv sind
+            // WICHTIG: Den neuen Multi-Filter auf die soeben erstellten Elemente anwenden
             window.filterMeals();
         }
 
