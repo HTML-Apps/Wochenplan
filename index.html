@@ -535,7 +535,7 @@
                 tagContainer.innerHTML += `
                     <label title="${TAGS[key].label}" class="tag-edit-label">
                         <input type="checkbox" value="${key}" ${checked} class="tag-checkbox"> 
-                        <span class="tag-icon-display" style="font-size:1rem; filter: ${checked ? 'grayscale(0)' : 'grayscale(1)'}; opacity: ${checked ? '1' : '0.4'};">
+                        <span class="tag-icon-display" style="font-size:1.2rem; filter: ${checked ? 'grayscale(0)' : 'grayscale(1)'}; opacity: ${checked ? '1' : '0.4'};">
                             ${TAGS[key].icon}
                         </span>
                     </label>
@@ -990,7 +990,7 @@
         .filter-tag:hover:not(.active) { background: #f1f5f9; }
 
         /* *** HIER GEÄNDERT ***: Neue Styles für die Icon-Tags im Bearbeiten-Modus */
-        .tag-edit-label { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #f1f5f9; padding: 8px; border-radius: 50%; width: 15px; height: 15px; cursor: pointer; }
+        .tag-edit-label { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #f1f5f9; padding: 8px; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; }
         .tag-checkbox { display: none; }
         .tag-icon-display { transition: all 0.2s; }
 
@@ -1113,7 +1113,7 @@
                     <input type="text" id="editRecipeTitle" style="width: 95%; padding: 7px; border-radius: 10px; border: 1px solid #ccc; margin-bottom: 15px; font-weight: bold;">
 
                     <strong>Tags:</strong>
-                    <div id="editTagsContainer" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:10px;"></div>
+                    <div id="editTagsContainer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 5px; margin-bottom: 10px;"></div>
 
                     <strong>Zutaten (Menge | Einheit | Lebensmittel):</strong>
                     <div id="zutatenEditorContainer"></div>
