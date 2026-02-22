@@ -1008,16 +1008,17 @@
 </head>
 <body> 
     <div id="loginSection" style="display:none; height: 20vh; flex-direction: column; justify-content: center; align-items: center;">
+        <h1 style="position: static;">Wochenplaner</h1>
+        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 500px; background: var(--accent);">Google Login</button>
+    </div>
+
+    <div id="appSection" style="display:none; width: 100%;">
         <h1 id="mainTitle" onclick="window.toggleLastEditPopup(event)" style="cursor: pointer; position: sticky; display: flex; justify-content: center; align-items: center; gap: 4px;">
             Wochenplaner
             <span id="notificationDot" class="notification-dot"></span>
             <div id="lastEditPopup" class="last-edit-popup" style="display: none;">Lade Daten...</div>
         </h1>
-        <button onclick="window.startLogin()" class="btn-hist" style="max-width: 500px; background: var(--accent);">Google Login</button>
-    </div>
 
-    <div id="appSection" style="display:none; width: 100%;">
-        <h1>Wochenplaner</h1>
         <div class="controls-wrapper">
             <button class="nav-btn" onclick="moveSlider(-1)" id="prevBtn">❮</button>
             <div class="kw-display" id="kwDisplay">...</div>
