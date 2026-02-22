@@ -89,6 +89,49 @@
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
 
+
+
+
+
+        // --- USER & METADATA LOGIK ---
+        const USER_MAP = {
+            "junkerhendrik@googlemail.com": "Hendrik",
+            "20jbard21@gmail.com": "Julia"
+        };
+
+        // Speichert ab, dass gerade jemand etwas geändert hat
+        window.trackEdit = async () => {
+            if (!auth.currentUser) return;
+            try {
+                await setDoc(doc(db, "planung", "metadata"), {
+                    lastEditBy: auth.currentUser.email,
+                    lastEditTime: Date.now()
+                }, { merge: true });
+            } catch (e) {
+                console.error("Fehler beim Speichern der Metadaten:", e);
+            }
+        };
+
+        // Öffnet/Schließt das kleine Pop-up
+        window.toggleLastEditPopup = (event) => {
+            event.stopPropagation();
+            const popup = document.getElementById('lastEditPopup');
+            if (popup.style.display === 'none') {
+                popup.style.display = 'block';
+                // Pop-up schließen, wenn man irgendwo anders hinklickt
+                document.addEventListener('click', function closePopup() {
+                    popup.style.display = 'none';
+                    document.removeEventListener('click', closePopup);
+                });
+            } else {
+                popup.style.display = 'none';
+            }
+        };
+
+
+
+
+
         // --- CORE FUNKTIONEN ---
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
@@ -154,6 +197,38 @@
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
                 renderStorage(calculateCounts());
+            });
+
+
+
+
+
+
+            // Listener für Metadaten (wer hat zuletzt bearbeitet?)
+            onSnapshot(doc(db, "planung", "metadata"), (ds) => {
+                if (ds.exists()) {
+                    const data = ds.data();
+                    if (data.lastEditTime && data.lastEditBy) {
+                        const name = USER_MAP[data.lastEditBy] || "Jemand";
+                        const editDate = new Date(data.lastEditTime);
+                        const now = new Date();
+                        const hoursDiff = (now - editDate) / (1000 * 60 * 60);
+
+                        // Zeit formatieren (z.B. "Mo. 15:45 Uhr")
+                        const dayNames = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+                        const dayStr = dayNames[editDate.getDay()];
+                        const timeStr = editDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+                        document.getElementById('lastEditPopup').innerText = `zuletzt bearbeitet von: ${name} (${dayStr}. ${timeStr} Uhr)`;
+
+                        // Roter Punkt: Nur anzeigen, wenn die Änderung in den letzten 24h lag
+                        if (hoursDiff <= 24) {
+                            document.getElementById('notificationDot').style.display = 'inline-block';
+                        } else {
+                            document.getElementById('notificationDot').style.display = 'none';
+                        }
+                    }
+                }
             });
         }
 
@@ -319,6 +394,7 @@
             if (name) {
                 const newId = "m_" + Date.now();
                 await setDoc(doc(db, "speisekammer", newId), { name: name, tags: [] });
+                await window.trackEdit(); // <-- HIER EINFÜGEN
             }
         };
 
@@ -346,6 +422,7 @@
             
             planData[selectedDayKey] = updatedEntry;
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+            await window.trackEdit(); // <-- HIER EINFÜGEN
 
             const parts = selectedDayKey.split('-');
             const kwNum = parseInt(parts[1].replace('KW', ''));
@@ -484,6 +561,7 @@
             
             // 2. Name und Tags in der Speisekammer (Hauptliste) speichern
             await setDoc(doc(db, "speisekammer", currentRecipeId), { name: newName, tags: selectedTags }, { merge: true });
+            await window.trackEdit(); // <-- HIER EINFÜGEN
 
             // UI Update
             document.getElementById('recipeTitle').innerText = newName;
@@ -498,6 +576,7 @@
                     // Löschen aus beiden Collections
                     await deleteDoc(doc(db, "rezepte", currentRecipeId));
                     await deleteDoc(doc(db, "speisekammer", currentRecipeId));
+                    await window.trackEdit(); // <-- HIER EINFÜGEN
                     
                     alert("Gericht gelöscht.");
                     window.closeRecipeModal();
@@ -656,6 +735,7 @@
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
             planData[key] = { meal: currentMeal || "---", chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+            await window.trackEdit(); // <-- HIER EINFÜGEN
         };
 
         window.selectDay = (key) => {
@@ -894,11 +974,45 @@
             .chef-selector { left: 95px; } 
             .storage-section { width: 98.7%; }
         }
+
+        /* Der hochgestellte Benachrichtigungspunkt */
+        .notification-dot {
+            display: none; /* Standardmäßig versteckt */
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444; /* Auffälliges Rot */
+            border-radius: 50%;
+            transform: translateY(-10px); /* Leicht hochgestellt */
+            box-shadow: 0 0 4px rgba(239, 68, 68, 0.5); /* Leichtes Leuchten */
+        }
+
+        /* Das Pop-up für die Anzeige "zuletzt bearbeitet von..." */
+        .last-edit-popup {
+            position: absolute;
+            top: 100%; /* Direkt unter der h1 */
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #475569;
+            white-space: nowrap;
+            font-weight: 500; /* Überschreibt das Fettgedruckte der h1 */
+            z-index: 1000;
+            cursor: default;
+        }
     </style>
 </head>
 <body> 
     <div id="loginSection" style="display:none; height: 20vh; flex-direction: column; justify-content: center; align-items: center;">
-        <h1 style="position: static;">Wochenplaner</h1>
+        <h1 id="mainTitle" onclick="window.toggleLastEditPopup(event)" style="cursor: pointer; position: sticky; display: flex; justify-content: center; align-items: center; gap: 4px;">
+            Wochenplaner
+            <span id="notificationDot" class="notification-dot"></span>
+            <div id="lastEditPopup" class="last-edit-popup" style="display: none;">Lade Daten...</div>
+        </h1>
         <button onclick="window.startLogin()" class="btn-hist" style="max-width: 500px; background: var(--accent);">Google Login</button>
     </div>
 
