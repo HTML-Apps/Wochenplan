@@ -526,21 +526,29 @@
 
             try {
                 const res = await getDoc(doc(db, "rezepte", mealId));
+                const defaultText = "Arbeitszeit: XX min | Schwierigkeit: ★☆☆\n\n"; // Dein Standard-Satz
+
                 if (res.exists()) {
                     const data = res.data();
+                    
+                    // 1. Zutaten laden (wie bisher)
                     if (Array.isArray(data.zutaten)) {
                         document.getElementById('viewZutaten').innerHTML = data.zutaten.map(z => `<li>${z.menge || ''} ${z.einheit || ''} ${z.name}</li>`).join('');
                         data.zutaten.forEach(z => window.addZutatRow(z.menge, z.einheit, z.name));
-                    } else {
-                        document.getElementById('viewZutaten').innerText = data.zutaten || "";
-                        if(data.zutaten) window.addZutatRow("", "", data.zutaten);
                     }
-                    document.getElementById('viewZubereitung').innerText = data.zubereitung || "";
-                    document.getElementById('editZubereitung').value = data.zubereitung || "";
+
+                    // 2. Zubereitung laden
+                    // Wenn das Feld leer ist oder nur aus Leerzeichen besteht, nimm den defaultText
+                    const zubereitungInDB = data.zubereitung && data.zubereitung.trim() !== "" ? data.zubereitung : defaultText;
+                    
+                    document.getElementById('viewZubereitung').innerText = zubereitungInDB;
+                    document.getElementById('editZubereitung').value = zubereitungInDB;
+
                 } else {
+                    // Falls gar kein Rezept-Dokument existiert
                     document.getElementById('viewZutaten').innerHTML = "<li>Noch keine Zutaten.</li>";
-                    document.getElementById('viewZubereitung').innerText = "Noch keine Zubereitung.";
-                    document.getElementById('editZubereitung').value = "";
+                    document.getElementById('viewZubereitung').innerText = defaultText;
+                    document.getElementById('editZubereitung').value = defaultText;
                     window.addZutatRow(); 
                 }
             } catch (e) { console.error(e); }
