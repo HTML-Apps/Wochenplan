@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -97,10 +96,6 @@
         const kwLabels = [];
         const baseDate = new Date(2026, 0, 12); 
 
-
-
-
-
         // --- USER & METADATA LOGIK ---
         const USER_MAP = {
             "junkerhendrik@googlemail.com": "Hendrik",
@@ -148,10 +143,6 @@
             }
         };
 
-
-
-
-
         // --- CORE FUNKTIONEN ---
         window.toggleEditMode = () => {
             isEditMode = document.getElementById('editToggle').checked;
@@ -174,6 +165,11 @@
             document.getElementById('kwDisplay').innerText = kwLabels[currentWeekIndex];
             document.getElementById('prevBtn').disabled = currentWeekIndex === 0;
             document.getElementById('nextBtn').disabled = currentWeekIndex === 51;
+
+            // NEU: Einkaufsliste auf dem Desktop beim Wochenwechsel automatisch aktualisieren
+            if (window.innerWidth >= 1024 && window.showShoppingList) {
+                window.showShoppingList();
+            }
         }
 
         function setupRealtimeSync() {
@@ -219,11 +215,6 @@
                 renderStorage(calculateCounts());
             });
 
-
-
-
-
-
             // --- Der angepasste Listener ---
             onSnapshot(doc(db, "planung", "metadata"), (ds) => {
                 if (ds.exists()) {
@@ -246,9 +237,6 @@
                         const now = Date.now();
                         const hoursDiff = (now - data.lastEditTime) / (1000 * 60 * 60);
 
-                        // Zeige den Punkt NUR, wenn:
-                        // 1. Die Änderung jünger als 24 Stunden ist
-                        // UND 2. Der gespeicherte Zeitstempel im Browser kleiner ist als der in der DB (also was Neues passiert ist)
                         if (hoursDiff <= 24 && data.lastEditTime > parseInt(lastRead)) {
                             document.getElementById('notificationDot').style.display = 'inline-block';
                         } else {
@@ -293,7 +281,6 @@
             const totalMeals = speisekammerData.length;
             const storageHeader = document.querySelector('.storage-section h3');
             if (storageHeader) {
-                // -1 wegen des Platzhalters "---"
                 storageHeader.innerText = `🍴 Menüplan (${totalMeals - 1})`;
             }
 
@@ -301,7 +288,6 @@
             const now = new Date();
             now.setHours(0, 0, 0, 0);
 
-            // Berechnung der Historie (zuletzt gekocht)
             Object.keys(planData).forEach(key => {
                 const data = planData[key];
                 let mealName = (data && typeof data === 'object') ? data.meal : data;
@@ -332,14 +318,12 @@
 
             storageEl.innerHTML = "";
             
-            // Filter-Buttons oben drüber rendern
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
                 const count = counts[item.name] || 0;
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
-                // Logik für den Status-Text (Platzhalter vs. Häufigkeit)
                 let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
                 let timeLabel = "";
@@ -355,13 +339,9 @@
                     }
                 }
 
-                // Subtitle zusammenbauen (zuletzt gekocht Info nur wenn kein Platzhalter)
                 const fullSubtitle = (timeLabel && item.name !== "---") ? `${statusText} | zuletzt: ${timeLabel}` : statusText;
-
-                // Tags im Hintergrund für die Filter-Logik vorbereiten (werden nicht angezeigt!)
                 const tagStringForDataAttr = Array.isArray(item.tags) ? item.tags.join(',') : '';
 
-                // Meal-Item HTML (ohne Icons in der Anzeige)
                 storageEl.innerHTML += `
                     <div class="meal-item" 
                         style="${dynamicStyle}" 
@@ -374,24 +354,18 @@
                     </div>`;
             });
 
-            // Add-Button am Ende hinzufügen
             storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
-            
-            // WICHTIG: Den neuen Multi-Filter auf die soeben erstellten Elemente anwenden
             window.filterMeals();
         }
 
-        // Funktion zum Rendern der Filter-Buttons
         function renderTagFilters() {
             const container = document.getElementById('tagFilterContainer');
             if(!container) return;
             
-            // "Alle" Button (leert das Array)
             let html = `<button class="filter-tag ${activeTagFilters.length === 0 ? 'active' : ''}" 
                         onclick="window.setTagFilter(null)">Tags: Alle</button>`;
             
             Object.keys(TAGS).forEach(key => {
-                // Prüfen, ob dieser Tag aktuell im Array der aktiven Filter ist
                 const isActive = activeTagFilters.includes(key);
                 const tag = TAGS[key];
 
@@ -410,18 +384,16 @@
 
         window.setTagFilter = (key) => {
             if (key === null) {
-                activeTagFilters = []; // Reset
+                activeTagFilters = []; 
             } else {
                 if (activeTagFilters.includes(key)) {
-                    // Wenn schon ausgewählt -> entfernen
                     activeTagFilters = activeTagFilters.filter(t => t !== key);
                 } else {
-                    // Wenn neu -> hinzufügen
                     activeTagFilters.push(key);
                 }
             }
             renderTagFilters();
-            window.filterMeals(); // Filterung anstoßen
+            window.filterMeals(); 
         };
 
         window.addNewMeal = async () => {
@@ -429,7 +401,7 @@
             if (name) {
                 const newId = "m_" + Date.now();
                 await setDoc(doc(db, "speisekammer", newId), { name: name, tags: [] });
-                await window.trackEdit(); // <-- HIER EINFÜGEN
+                await window.trackEdit(); 
             }
         };
 
@@ -457,7 +429,7 @@
             
             planData[selectedDayKey] = updatedEntry;
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
-            await window.trackEdit(); // <-- HIER EINFÜGEN
+            await window.trackEdit(); 
 
             const parts = selectedDayKey.split('-');
             const kwNum = parseInt(parts[1].replace('KW', ''));
@@ -523,7 +495,7 @@
             document.getElementById('viewZutaten').innerHTML = "<li>Lade...</li>";
             document.getElementById('viewZubereitung').innerText = "Lade...";
             document.getElementById('zutatenEditorContainer').innerHTML = "";
-            document.getElementById('editRecipeTitle').value = mealName; // Diese Zeile ergänzen
+            document.getElementById('editRecipeTitle').value = mealName; 
             
             const tagContainer = document.getElementById('editTagsContainer');
             tagContainer.innerHTML = "";
@@ -533,7 +505,6 @@
             
             Object.keys(TAGS).forEach(key => {
                 const checked = currentTags.includes(key) ? 'checked' : '';
-                // *** HIER GEÄNDERT ***: Das Label enthält nur noch das Icon, das Label-Text ist der `title`.
                 tagContainer.innerHTML += `
                     <label title="${TAGS[key].label}" class="tag-edit-label">
                         <input type="checkbox" value="${key}" ${checked} class="tag-checkbox"> 
@@ -544,7 +515,6 @@
                 `;
             });
 
-            // Event-Listener für die visuelle Rückmeldung hinzufügen
             document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', (e) => {
                     const iconSpan = e.target.nextElementSibling;
@@ -591,14 +561,10 @@
             const selectedTags = Array.from(tagCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
             const zubereitung = document.getElementById('editZubereitung').value;
             
-            // 1. Rezept-Details speichern
             await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
-            
-            // 2. Name und Tags in der Speisekammer (Hauptliste) speichern
             await setDoc(doc(db, "speisekammer", currentRecipeId), { name: newName, tags: selectedTags }, { merge: true });
-            await window.trackEdit(); // <-- HIER EINFÜGEN
+            await window.trackEdit(); 
 
-            // UI Update
             document.getElementById('recipeTitle').innerText = newName;
             document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
             document.getElementById('viewZubereitung').innerText = zubereitung;
@@ -608,10 +574,9 @@
         window.deleteRecipe = async () => {
             if (confirm("Möchtest du dieses Gericht wirklich dauerhaft aus der Datenbank löschen?")) {
                 try {
-                    // Löschen aus beiden Collections
                     await deleteDoc(doc(db, "rezepte", currentRecipeId));
                     await deleteDoc(doc(db, "speisekammer", currentRecipeId));
-                    await window.trackEdit(); // <-- HIER EINFÜGEN
+                    await window.trackEdit(); 
                     
                     alert("Gericht gelöscht.");
                     window.closeRecipeModal();
@@ -638,11 +603,9 @@
         };
 
         // --- EINKAUFSLISTEN LOGIK ---
-        // Variable zum Speichern des aktuellen Listen-Typs (lokal im Script)
         let activeShopFilter = 'all'; 
 
         window.generateShoppingList = async (filterChef = null) => {
-            // Aktiven Filter setzen für das Styling
             activeShopFilter = filterChef || 'all';
             
             const currentKW = kwLabels[currentWeekIndex];
@@ -670,7 +633,6 @@
                 }
             });
 
-            // --- NEU: Visuelles Feedback der Buttons aktualisieren ---
             document.querySelectorAll('.shop-filter-btn').forEach(btn => {
                 btn.style.border = "2px solid transparent";
                 btn.style.opacity = "0.6";
@@ -678,7 +640,7 @@
             });
             const activeBtn = document.getElementById(`btn-shop-${activeShopFilter}`);
             if(activeBtn) {
-                activeBtn.style.border = "2px solid black"; // Markante Umrandung
+                activeBtn.style.border = "2px solid black"; 
                 activeBtn.style.opacity = "1";
                 activeBtn.style.transform = "scale(1.05)";
                 activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
@@ -689,7 +651,6 @@
                 return;
             }
 
-            // ... (Rest deiner Zutatensammlung-Logik bleibt gleich)
             for (const mealName of weekMeals) {
                 const mealObj = speisekammerData.find(m => m.name === mealName);
                 if (mealObj) {
@@ -713,13 +674,10 @@
                 updatedAt: Date.now()
             });
 
-            // Rufe hier die Funktion auf, die die Liste aus der DB liest und im HTML anzeigt
             if (window.showShoppingList) {
                 window.showShoppingList(); 
                 console.log("Shoppingliste wurde neu gerendert!");
             }
-            
-            //alert(`${listType} wurde generiert!`);
         };
 
         let listUnsubscribe = null;
@@ -770,7 +728,7 @@
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
             planData[key] = { meal: currentMeal || "---", chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
-            await window.trackEdit(); // <-- HIER EINFÜGEN
+            await window.trackEdit(); 
         };
 
         window.selectDay = (key) => {
@@ -785,29 +743,21 @@
             const meals = document.querySelectorAll('.meal-item');
             
             meals.forEach(meal => {
-                // Den "+ Hinzufügen" Button immer überspringen
                 if (meal.classList.contains('add-meal-btn')) return;
 
-                // 1. Name holen
                 const nameEl = meal.querySelector('span');
                 const name = nameEl ? nameEl.innerText.toLowerCase() : "";
 
-                // 2. Tags aus dem data-Attribut holen
                 const tagsAttr = meal.getAttribute('data-tags') || "";
-                // Erstellt ein Array, entfernt Leerzeichen und filtert leere Einträge
                 const mealTags = tagsAttr.split(',').map(t => t.trim()).filter(t => t !== "");
 
-                // 3. Text-Suche
                 const matchText = name.includes(searchTerm);
                 
-                // 4. Tag-Suche (Multi-Select AND-Logik)
                 let matchTag = true;
                 if (activeTagFilters.length > 0) {
-                    // Das Gericht muss JEDEN der aktiven Filter-Keys in seinen mealTags haben
                     matchTag = activeTagFilters.every(f => mealTags.includes(f));
                 }
 
-                // 5. Sichtbarkeit setzen
                 if (matchText && matchTag) {
                     meal.style.display = "flex";
                 } else {
@@ -915,18 +865,16 @@
         .controls-wrapper { display: flex; align-items: center; gap: 10px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 90; }
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
+        
         .slider-container { width: 100%; overflow: hidden; }
         .week-wrapper { display: flex; transition: transform 0.4s ease-in-out; }
         .week-page { min-width: 100%; box-sizing: border-box; }
-        .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; width: 100%; }
+        .week-grid { display: grid; gap: 10px; width: 100%; }
+        
         .day-card { background: white; padding: 10px; border-radius: 14px; min-height: 50px; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; position: relative; transition: all 0.3s; }
         .day-card.is-today { border: 6px solid !important; z-index: 10; font-size: 1rem !important; border-color: #94a3b8 !important; }
         .day-card.is-today.chef-j { border-color: var(--julia) !important; }
         .day-card.is-today.chef-h { border-color: var(--hendrik) !important; }
-
-        /*.day-card.is-today {
-            background-color: rgba(255, 255, 0, 0.1) !important; /* Färbt die heutige Karte leicht gelb 
-        }*/
         
         .day-card.chef-j { background: #fdf2f8; border-color: var(--julia); }
         .day-card.chef-h { background: #eff6ff; border-color: var(--hendrik); }
@@ -937,10 +885,7 @@
         .btn-h { background: var(--hendrik); }
         .day-info-col { display: flex; flex-direction: column; min-width: 70px; border-right: 1px solid #c8d1d9; padding-right: 4px; }
 
-        /* Wähle die info-col aus, die sich INNERHALB einer is-today Karte befindet */
-        .day-card.is-today .day-info-col { 
-            padding-right: 0px !important; 
-        }
+        .day-card.is-today .day-info-col { padding-right: 0px !important; }
 
         .meal-col { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; }
         .day-name { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
@@ -958,7 +903,6 @@
         }
         
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
-        
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
         .storage-section { width: 95%; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 15px; }
@@ -986,70 +930,103 @@
         .shop-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
         .shop-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
         
-        /* Neue Styles für Tags */
         .filter-tag { border: 1px solid #e2e8f0; background: white; padding: 6px 10px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; color: #64748b; }
         .filter-tag.active { background: var(--primary); color: white; border-color: var(--primary); }
         .filter-tag:hover:not(.active) { background: #f1f5f9; }
 
-        /* *** HIER GEÄNDERT ***: Neue Styles für die Icon-Tags im Bearbeiten-Modus */
         .tag-edit-label { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #f1f5f9; padding: 8px; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; }
         .tag-checkbox { display: none; }
         .tag-icon-display { transition: all 0.2s; }
 
-        @media (min-width: 1051px) { .week-grid { grid-template-columns: repeat(4, 1fr); } }
-        @media (max-width: 1050px) { .week-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 600px) { .week-grid { grid-template-columns: 1fr; } .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; } }
+        /* Der hochgestellte Benachrichtigungspunkt */
+        .notification-dot { display: none; width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; transform: translateY(-10px); box-shadow: 0 0 4px rgba(239, 68, 68, 0.5); }
+
+        .last-edit-popup { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); padding: 10px 16px; border-radius: 12px; font-size: 0.85rem; color: #1e293b; white-space: nowrap; font-weight: 500; z-index: 9999; cursor: default; pointer-events: auto; }
+        .last-edit-popup::before { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg); width: 12px; height: 12px; background: white; border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; }
+
+        /* RESPONSIVE MEDIA QUERIES (Handy / Tablet / Desktop) */
+        @media (max-width: 600px) { 
+            .week-grid { grid-template-columns: 1fr; } 
+            .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; } 
+        }
+
+        @media (min-width: 601px) and (max-width: 1023px) { 
+            .week-grid { grid-template-columns: repeat(2, 1fr); } 
+        }
+
+        /* DAS NEUE DESKTOP LAYOUT (Ab 1024px) */
         @media (min-width: 1024px) { 
-            .day-card { padding: 20px; } 
+            .desktop-layout {
+                display: flex;
+                flex-direction: row;
+                gap: 20px;
+                width: 100%;
+                max-width: 1800px;
+                align-items: flex-start;
+                box-sizing: border-box;
+            }
+
+            .column-left {
+                width: 25%;
+                max-height: calc(100vh - 160px); /* Damit es scrollbar ist und hinter der Header-Leiste passt */
+                overflow-y: auto;
+                scrollbar-width: none; /* Versteckt Scrollbalken für sauberen Look */
+            }
+            .column-left::-webkit-scrollbar { display: none; }
+
+            .column-middle {
+                width: 55%;
+                max-height: calc(100vh - 160px);
+                overflow-y: auto;
+                scrollbar-width: none;
+            }
+            .column-middle::-webkit-scrollbar { display: none; }
+
+            .column-right {
+                width: 20%;
+                max-height: calc(100vh - 160px);
+                overflow-y: auto;
+                scrollbar-width: none;
+            }
+            .column-right::-webkit-scrollbar { display: none; }
+
+            /* Desktop: Wochenkalender wieder als 1 Spalte (wie von dir im Bild gewünscht) */
+            .week-grid { grid-template-columns: 1fr !important; }
+
+            .day-card { padding: 15px; } 
             .day-info-col { min-width: 90px; } 
             .selected-meal { font-size: 1.05rem; } 
             .chef-selector { left: 95px; } 
-            .storage-section { width: 98.7%; }
-        }
+            
+            .storage-section { width: 100%; margin-top: 0; box-sizing: border-box; }
 
-        /* Der hochgestellte Benachrichtigungspunkt */
-        .notification-dot {
-            display: none; /* Standardmäßig versteckt */
-            width: 8px;
-            height: 8px;
-            background-color: #ef4444; /* Auffälliges Rot */
-            border-radius: 50%;
-            transform: translateY(-10px); /* Leicht hochgestellt */
-            box-shadow: 0 0 4px rgba(239, 68, 68, 0.5); /* Leichtes Leuchten */
-        }
+            /* Mache das Einkaufs-Modal zu einem fixen, sichtbaren Element auf Desktop */
+            #shoppingListModal {
+                position: static !important;
+                display: flex !important;
+                background: transparent;
+                width: 100%;
+                height: auto;
+                z-index: 1;
+                pointer-events: none; /* Verhindert das Schließen bei versehentlichem Klick daneben */
+                align-items: flex-start !important;
+            }
+            
+            #shoppingListModal .modal-box {
+                pointer-events: auto; /* Inhalt selbst bleibt klickbar */
+                width: 100%;
+                max-width: none;
+                height: auto;
+                min-height: calc(100vh - 160px);
+                box-shadow: 0 10px 15px rgba(0,0,0,0.05);
+                margin: 0;
+                padding: 15px;
+                box-sizing: border-box;
+            }
 
-        /* Das Pop-up für die Anzeige "zuletzt bearbeitet von..." */
-        .last-edit-popup {
-            position: absolute;
-            top: 50px; /* Ein Stück unter der Schrift */
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            padding: 10px 16px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            color: #1e293b;
-            white-space: nowrap;
-            font-weight: 500;
-            z-index: 9999; /* Sehr hoch, damit es über den Controls liegt */
-            cursor: default;
-            pointer-events: auto; /* Klickbar machen */
-        }
-
-        /* Ein kleiner Pfeil oben am Pop-up (optional, sieht schöner aus) */
-        .last-edit-popup::before {
-            content: "";
-            position: absolute;
-            top: -6px;
-            left: 50%;
-            transform: translateX(-50%) rotate(45deg);
-            width: 12px;
-            height: 12px;
-            background: white;
-            border-left: 1px solid #e2e8f0;
-            border-top: 1px solid #e2e8f0;
+            /* Verstecke den Einkaufsliste-Button unten, sowie den Schließen-Button im Modal */
+            .history-footer { display: none !important; }
+            .close-modal-btn { display: none !important; }
         }
     </style>
 </head>
@@ -1076,22 +1053,50 @@
             </div>
         </div>
         
-        <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
-        
-        <div class="storage-section">
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0;">🍴 Menüplan</h3>
-                    <input type="search" id="mealSearch" placeholder="Gericht suchen..." 
-                        style="padding: 8px 12px; border-radius: 20px; border: 1px solid #e2e8f0; width: 40%;"
-                        oninput="filterMeals()">
-                </div>
-                <div id="tagFilterContainer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 5px;"></div>
+        <div class="desktop-layout">
+            
+            <div class="column-left">
+                <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
             </div>
-            <div class="meal-storage" id="mealStorage"></div>
-        </div>
+            
+            <div class="column-middle">
+                <div class="storage-section">
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0;">🍴 Menüplan</h3>
+                            <input type="search" id="mealSearch" placeholder="Gericht suchen..." 
+                                style="padding: 8px 12px; border-radius: 20px; border: 1px solid #e2e8f0; width: 40%;"
+                                oninput="filterMeals()">
+                        </div>
+                        <div id="tagFilterContainer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 5px;"></div>
+                    </div>
+                    <div class="meal-storage" id="mealStorage"></div>
+                </div>
+            </div>
 
-        <div class="history-footer">
+            <div class="column-right">
+                <div id="shoppingListModal" class="modal" onclick="this.style.display='none'">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <h2 id="shopTitle" onclick="window.generateShoppingList()" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
+                        <p>Listentyp auswählen und per Klick generieren</p>
+                        
+                        <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: space-between;">
+                            <button id="btn-shop-all" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList()" style="font-size:0.75rem; flex: 1; padding: 10px 5px;">Tags: Alle</button>
+                            <button id="btn-shop-J" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('J')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--julia);">Julia</button>
+                            <button id="btn-shop-H" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('H')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--hendrik);">Hendrik</button>
+                        </div>
+
+                        <div id="shoppingListContent"></div>
+                        
+                        <div style="display:flex; gap:10px; margin-top:20px;">
+                            <button class="btn-hist close-modal-btn" style="background:#64748b; flex:1;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
+                            <button class="btn-hist" onclick="window.copyToClipboard()" style="background: #10b981; flex:1;">Kopieren</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div> <div class="history-footer">
             <button class="btn-hist" onclick="window.showShoppingList()" style="background:var(--primary)">Einkaufsliste</button>
         </div>
     </div>
@@ -1129,26 +1134,6 @@
                     <button class="btn-hist" style="background:#ef4444; color: #fff; width: 100%;" onclick="window.deleteRecipe()">Löschen</button>
                     <button class="btn-hist" style="background:#160f8e; flex: 1;" onclick="window.saveRecipe()">Speichern</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="shoppingListModal" class="modal" onclick="this.style.display='none'">
-        <div class="modal-box" onclick="event.stopPropagation()">
-            <h2 id="shopTitle" onclick="window.generateShoppingList()" style="margin-top:0; color:var(--primary);">Einkaufsliste</h2>
-            <p>Listentyp auswählen und per Klick generieren</p>
-            
-            <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: space-between;">
-                <button id="btn-shop-all" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList()" style="font-size:0.75rem; flex: 1; padding: 10px 5px;">Tags: Alle</button>
-                <button id="btn-shop-J" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('J')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--julia);">Julia</button>
-                <button id="btn-shop-H" class="btn-hist shop-filter-btn" onclick="window.generateShoppingList('H')" style="font-size:0.75rem; flex: 1; padding: 10px 5px; background-color: var(--hendrik);">Hendrik</button>
-            </div>
-
-            <div id="shoppingListContent"></div>
-            
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn-hist" style="background:#64748b; flex:1;" onclick="document.getElementById('shoppingListModal').style.display='none'">Schließen</button>
-                <button class="btn-hist" onclick="window.copyToClipboard()" style="background: #10b981; flex:1;">Kopieren</button>
             </div>
         </div>
     </div>
