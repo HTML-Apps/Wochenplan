@@ -601,7 +601,7 @@
             } catch (e) { console.error(e); }
         };
 
-        window.saveRecipe = async () => {
+        /*window.saveRecipe = async () => {
             const newName = document.getElementById('editRecipeTitle').value.trim();
             if (!newName) return alert("Bitte einen Namen eingeben.");
 
@@ -624,6 +624,50 @@
             document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
             document.getElementById('viewZubereitung').innerText = zubereitung;
             window.cancelEdit();
+        };*/
+
+        window.saveRecipe = async () => {
+            const newName = document.getElementById('editRecipeTitle').value.trim();
+            if (!newName) return alert("Bitte einen Namen eingeben.");
+
+            const rows = document.querySelectorAll('.zutat-row');
+            const zutatenArray = Array.from(rows).map(row => ({
+                menge: row.querySelector('.z-menge').value,
+                einheit: row.querySelector('.z-einheit').value,
+                name: row.querySelector('.z-name').value
+            })).filter(z => z.name !== "");
+
+            const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
+            const selectedTags = Array.from(tagCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+            const zubereitung = document.getElementById('editZubereitung').value;
+            
+            // 1. Daten speichern
+            await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
+            await setDoc(doc(db, "speisekammer", currentRecipeId), { name: newName, tags: selectedTags }, { merge: true });
+            await window.trackEdit(); 
+
+            // 2. UI im Hintergrund aktualisieren
+            document.getElementById('recipeTitle').innerText = newName;
+            document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
+            document.getElementById('viewZubereitung').innerText = zubereitung;
+
+            // 3. ALLE Fenster schließen
+            // Zuerst den Bearbeitungsmodus verlassen
+            window.cancelEdit(); 
+
+            // Hier alle Overlay-Container ausblenden (IDs bitte an dein Projekt anpassen)
+            const overlays = ['recipeModal', 'editOverlay', 'dialog']; 
+            overlays.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            // Optional: Den Vokabel/Rezept-Listen-Zustand zurücksetzen
+            if (typeof hideVokabelListe === "function") {
+                hideVokabelListe();
+            }
+
+            console.log("Speichervorgang abgeschlossen, zurück zum Hauptbildschirm.");
         };
 
         window.deleteRecipe = async () => {
