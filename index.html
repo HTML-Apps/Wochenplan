@@ -280,20 +280,34 @@
         }
 
         function getHeatStyle(count, min, max, mealName) {
+            // Prüfen, ob der Darkmode aktuell aktiv ist
+            const isDarkMode = document.body.classList.contains('dark-mode');
+
             if (mealName === "---") {
-                // ANGEPASST FÜR DARK MODE: Nutze CSS-Variablen anstatt fixen Farben
                 return "background-color: var(--ph-bg); border-color: var(--ph-border); color: var(--ph-color);";
             }
-            if (count === 0) return "background-color: #f0fdf4; border-color: #bbf7d0;";
-            if (max === min) return "background-color: #fef9c3; border-color: #fde047;";
 
-            const ratio = (count - min) / (max - min);
-            const hue = 100 - (ratio * 100); 
-            
-            const bg = `hsl(${hue}, 80%, 92%)`;
-            const border = `hsl(${hue}, 70%, 75%)`;
+            // Basis-Farben berechnen
+            let bg, border;
+            if (count === 0) {
+                bg = "#f0fdf4";
+                border = "#bbf7d0";
+            } else if (max === min) {
+                bg = "#fef9c3";
+                border = "#fde047";
+            } else {
+                const ratio = (count - min) / (max - min);
+                const hue = 100 - (ratio * 100); 
+                bg = `hsl(${hue}, 80%, 92%)`;
+                border = `hsl(${hue}, 70%, 75%)`;
+            }
 
-            return `background-color: ${bg}; border-color: ${border};`;
+            // NEU: Wenn Darkmode aktiv ist, Hintergrund auf schwarz setzen
+            if (isDarkMode) {
+                return `background-color: #000000; border-color: ${border}; color: #e2e8f0;`;
+            }
+
+            return `background-color: ${bg}; border-color: ${border}; color: #0f172a;`;
         }
 
         async function renderStorage(counts) {
@@ -962,7 +976,8 @@
         body.dark-mode .day-card.is-today { border-color: #64748b !important; }
         
         /* Meal Items in Dark Mode (Textfarbe dunkel für guten Kontrast auf der hellen Heatmap) */
-        body.dark-mode .meal-item { color: #0f172a; } 
+        /* Im Darkmode soll die Schrift in den Kacheln hell sein, da der Hintergrund nun schwarz ist */
+        body.dark-mode .meal-item { color: #e2e8f0; }
         body.dark-mode .meal-item.add-meal-btn { 
             background: transparent !important; 
             color: #94a3b8 !important; 
