@@ -502,6 +502,15 @@
             
             const mealData = speisekammerData.find(m => m.id === mealId);
             const currentTags = mealData && mealData.tags ? mealData.tags : [];
+
+            // --- NEU: Tags im Ansichtsmodus (Icons) rendern ---
+            const viewTagsContainer = document.getElementById('recipeViewTags');
+            if (viewTagsContainer) {
+                viewTagsContainer.innerHTML = currentTags.map(tagKey => {
+                    const tag = TAGS[tagKey];
+                    return tag ? `<span title="${tag.label}">${tag.icon}</span>` : '';
+                }).join('');
+            }
             
             Object.keys(TAGS).forEach(key => {
                 const checked = currentTags.includes(key) ? 'checked' : '';
@@ -740,7 +749,25 @@
         };
 
         window.selectDay = (key) => {
-            if (!isEditMode) return;
+            if (!isEditMode) {
+                // NEU: Klick im Ansichtsmodus (Gericht öffnen)
+                const currentData = planData[key];
+                let mealName = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
+
+                // Wenn ein echtes Gericht geplant ist (nicht "---")
+                if (mealName && mealName !== "---") {
+                    // ID anhand des Namens in der Speisekammer finden
+                    const mealObj = speisekammerData.find(m => m.name === mealName);
+                    if (mealObj) {
+                        window.openRecipePopup(mealObj.id, mealName);
+                    } else {
+                        alert("Rezept nicht in der Datenbank gefunden.");
+                    }
+                }
+                return; // Hier abbrechen, damit die Karte nicht "active" wird
+            }
+
+            // Bestehender Code für den Edit-Mode
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${key}`).classList.add('active');
             selectedDayKey = key;
@@ -1117,6 +1144,8 @@
         <div class="modal-box" onclick="event.stopPropagation()">
             <h2 id="recipeTitle" style="margin-top:0; color: var(--primary);"></h2>
             <div id="recipeView">
+                <div id="recipeViewTags" style="margin-bottom: 15px; font-size: 1.5rem; display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                
                 <div class="recipe-box">
                     <strong>Zutaten:</strong> <ul id="viewZutaten"></ul>
                     <strong>Zubereitung:</strong> <p id="viewZubereitung" style="white-space: pre-wrap;"></p>
