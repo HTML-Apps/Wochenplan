@@ -601,31 +601,6 @@
             } catch (e) { console.error(e); }
         };
 
-        /*window.saveRecipe = async () => {
-            const newName = document.getElementById('editRecipeTitle').value.trim();
-            if (!newName) return alert("Bitte einen Namen eingeben.");
-
-            const rows = document.querySelectorAll('.zutat-row');
-            const zutatenArray = Array.from(rows).map(row => ({
-                menge: row.querySelector('.z-menge').value,
-                einheit: row.querySelector('.z-einheit').value,
-                name: row.querySelector('.z-name').value
-            })).filter(z => z.name !== "");
-
-            const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
-            const selectedTags = Array.from(tagCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-            const zubereitung = document.getElementById('editZubereitung').value;
-            
-            await setDoc(doc(db, "rezepte", currentRecipeId), { zutaten: zutatenArray, zubereitung }, { merge: true });
-            await setDoc(doc(db, "speisekammer", currentRecipeId), { name: newName, tags: selectedTags }, { merge: true });
-            await window.trackEdit(); 
-
-            document.getElementById('recipeTitle').innerText = newName;
-            document.getElementById('viewZutaten').innerHTML = zutatenArray.map(z => `<li>${z.menge} ${z.einheit} ${z.name}</li>`).join('');
-            document.getElementById('viewZubereitung').innerText = zubereitung;
-            window.cancelEdit();
-        };*/
-
         window.saveRecipe = async () => {
             const newName = document.getElementById('editRecipeTitle').value.trim();
             if (!newName) return alert("Bitte einen Namen eingeben.");
