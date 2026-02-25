@@ -18,7 +18,7 @@
             margin: 0;
             
             /* Deine Farben (falls du Variablen nutzt, sonst nimm den Hex-Code) */
-            background-color: var(--bg-color, #f1f4f9); 
+            background-color: var(--bg-color, var(--bg)); 
         }
     </style>
     
@@ -44,6 +44,27 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
+
+        // --- THEME LOGIK (DARK MODE) ---
+        window.toggleTheme = () => {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('themeToggleBtn').innerText = isDark ? '☀️' : '🌙';
+        };
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            // Prüfe System-Design
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggleBtn').innerText = '☀️';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.getElementById('themeToggleBtn').innerText = '🌙';
+            }
+        }
 
         // --- TAG CONFIGURATION ---
         const TAGS = {
@@ -260,7 +281,8 @@
 
         function getHeatStyle(count, min, max, mealName) {
             if (mealName === "---") {
-                return "background-color: #ffffff; border-color: #e2e8f0; color: #94a3b8;";
+                // ANGEPASST FÜR DARK MODE: Nutze CSS-Variablen anstatt fixen Farben
+                return "background-color: var(--ph-bg); border-color: var(--ph-border); color: var(--ph-color);";
             }
             if (count === 0) return "background-color: #f0fdf4; border-color: #bbf7d0;";
             if (max === min) return "background-color: #fef9c3; border-color: #fde047;";
@@ -354,7 +376,7 @@
                     </div>`;
             });
 
-            storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()" style="border: 2px dashed #ccc; color: #999; background: white;">+ Gericht hinzufügen</div>`;
+            storageEl.innerHTML += `<div class="meal-item add-meal-btn" onclick="addNewMeal()">+ Gericht hinzufügen</div>`;
             window.filterMeals();
         }
 
@@ -503,7 +525,6 @@
             const mealData = speisekammerData.find(m => m.id === mealId);
             const currentTags = mealData && mealData.tags ? mealData.tags : [];
 
-            // --- NEU: Tags im Ansichtsmodus (Icons) rendern ---
             const viewTagsContainer = document.getElementById('recipeViewTags');
             if (viewTagsContainer) {
                 viewTagsContainer.innerHTML = currentTags.map(tagKey => {
@@ -535,26 +556,22 @@
 
             try {
                 const res = await getDoc(doc(db, "rezepte", mealId));
-                const defaultText = "Arbeitszeit: XX min | Schwierigkeit: ★☆☆\n\n"; // Dein Standard-Satz
+                const defaultText = "Arbeitszeit: XX min | Schwierigkeit: ★☆☆\n\n"; 
 
                 if (res.exists()) {
                     const data = res.data();
                     
-                    // 1. Zutaten laden (wie bisher)
                     if (Array.isArray(data.zutaten)) {
                         document.getElementById('viewZutaten').innerHTML = data.zutaten.map(z => `<li>${z.menge || ''} ${z.einheit || ''} ${z.name}</li>`).join('');
                         data.zutaten.forEach(z => window.addZutatRow(z.menge, z.einheit, z.name));
                     }
 
-                    // 2. Zubereitung laden
-                    // Wenn das Feld leer ist oder nur aus Leerzeichen besteht, nimm den defaultText
                     const zubereitungInDB = data.zubereitung && data.zubereitung.trim() !== "" ? data.zubereitung : defaultText;
                     
                     document.getElementById('viewZubereitung').innerText = zubereitungInDB;
                     document.getElementById('editZubereitung').value = zubereitungInDB;
 
                 } else {
-                    // Falls gar kein Rezept-Dokument existiert
                     document.getElementById('viewZutaten').innerHTML = "<li>Noch keine Zutaten.</li>";
                     document.getElementById('viewZubereitung').innerText = defaultText;
                     document.getElementById('editZubereitung').value = defaultText;
@@ -718,7 +735,7 @@
                 content.innerHTML = items.map((item, index) => `
                     <div class="shop-item">
                         <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="window.toggleListItem('${shoppingListId}', ${index})">
-                        <span style="${item.checked ? 'text-decoration:line-through; color:#94a3b8;' : ''}">
+                        <span style="${item.checked ? 'text-decoration:line-through; color: var(--text-muted, #94a3b8);' : ''}">
                             <strong>${item.menge > 0 ? item.menge : ''} ${item.einheit}</strong> ${item.name}
                         </span>
                     </div>
@@ -750,13 +767,10 @@
 
         window.selectDay = (key) => {
             if (!isEditMode) {
-                // NEU: Klick im Ansichtsmodus (Gericht öffnen)
                 const currentData = planData[key];
                 let mealName = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
 
-                // Wenn ein echtes Gericht geplant ist (nicht "---")
                 if (mealName && mealName !== "---") {
-                    // ID anhand des Namens in der Speisekammer finden
                     const mealObj = speisekammerData.find(m => m.name === mealName);
                     if (mealObj) {
                         window.openRecipePopup(mealObj.id, mealName);
@@ -764,10 +778,9 @@
                         alert("Rezept nicht in der Datenbank gefunden.");
                     }
                 }
-                return; // Hier abbrechen, damit die Karte nicht "active" wird
+                return; 
             }
 
-            // Bestehender Code für den Edit-Mode
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${key}`).classList.add('active');
             selectedDayKey = key;
@@ -831,6 +844,8 @@
         };
 
         function init() {
+            initTheme(); // NEU: Theme beim Start laden
+
             const wrapper = document.getElementById('weekWrapper');
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -888,16 +903,87 @@
         }
     </script>
     <style>
-        :root { --primary: #160f8e; --bg: #f1f5f9; --card: #ffffff; --accent: #10b981; --julia: #f472b6; --hendrik: #60a5fa; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        h1 { margin: 10px 0; font-size: 1.5rem; position: sticky; top: 0; background: var(--bg); width: 100%; text-align: center; z-index: 100; padding: 10px 0; }
+        :root { 
+            --primary: #160f8e; 
+            --bg: #f1f5f9; 
+            --card: #ffffff; 
+            --accent: #10b981; 
+            --julia: #f472b6; 
+            --hendrik: #60a5fa; 
+            
+            /* NEU: CSS Variablen für das Handling des Platzhalters "---" */
+            --ph-bg: #ffffff; 
+            --ph-border: #e2e8f0; 
+            --ph-color: #94a3b8;
+        }
+
+        /* --- DARK MODE RULES --- */
+        body.dark-mode {
+            --primary: #818cf8; /* Helleres Blau für besseren Kontrast */
+            --bg: #0f172a;      /* Tiefer, dunkler Hintergrund */
+            --card: #1e293b;    /* Leicht hellere Kacheln */
+            
+            /* Dunkel-Varianten für Platzhalter "---" */
+            --ph-bg: #1e293b;
+            --ph-border: #334155;
+            --ph-color: #64748b;
+        }
+        body.dark-mode h1, 
+        body.dark-mode .controls-wrapper small,
+        body.dark-mode #viewZutaten,
+        body.dark-mode .recipe-box strong,
+        body.dark-mode .selected-meal,
+        body.dark-mode .day-date,
+        body.dark-mode .last-edit-popup,
+        body.dark-mode .shop-item,
+        body.dark-mode #shoppingListContent p,
+        body.dark-mode .storage-section h3 {
+            color: #e2e8f0 !important;
+        }
+        body.dark-mode .day-name { color: #94a3b8; }
+        body.dark-mode .controls-wrapper, 
+        body.dark-mode .day-card, 
+        body.dark-mode .storage-section, 
+        body.dark-mode .modal-box,
+        body.dark-mode .last-edit-popup,
+        body.dark-mode .filter-tag {
+            background: var(--card);
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        body.dark-mode input, 
+        body.dark-mode textarea {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-color: #334155;
+        }
+        body.dark-mode .day-card.chef-j { background: #381c29; border-color: var(--julia); }
+        body.dark-mode .day-card.chef-h { background: #1a273a; border-color: var(--hendrik); }
+        body.dark-mode .day-card.is-today { border-color: #64748b !important; }
+        
+        /* Meal Items in Dark Mode (Textfarbe dunkel für guten Kontrast auf der hellen Heatmap) */
+        body.dark-mode .meal-item { color: #0f172a; } 
+        body.dark-mode .meal-item.add-meal-btn { 
+            background: transparent !important; 
+            color: #94a3b8 !important; 
+            border-color: #334155 !important; 
+        }
+        body.dark-mode .last-edit-popup::before { 
+            background: var(--card); 
+            border-top-color: #334155; 
+            border-left-color: #334155; 
+        }
+        /* --- END DARK MODE RULES --- */
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; transition: background 0.3s ease; }
+        h1 { margin: 10px 0; font-size: 1.5rem; position: sticky; top: 0; background: var(--bg); width: 100%; text-align: center; z-index: 100; padding: 10px 0; transition: background 0.3s ease; }
         .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(18px); }
-        .controls-wrapper { display: flex; align-items: center; gap: 10px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 90; }
+        .controls-wrapper { display: flex; align-items: center; gap: 10px; background: white; padding: 10px 20px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: sticky; top: 60px; z-index: 90; transition: all 0.3s ease; }
         .nav-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .kw-display { font-weight: 800; min-width: 80px; text-align: center; font-size: 1rem; }
         
@@ -939,19 +1025,19 @@
         
         .day-date { color: var(--primary); font-weight: 600; font-size: 0.85rem; }
         .selected-meal { font-weight: 700; color: #334155; font-size: 0.9rem; line-height: 1.2; }
-        .storage-section { width: 95%; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+        .storage-section { width: 95%; background: white; padding: 10px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.05); transition: background 0.3s ease; }
         .meal-storage { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 15px; }
         .meal-item { background: #f8fafc; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 2px solid transparent; font-size: 0.8rem; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; }
         .meal-item:hover { background: #e0e7ff; }
         .edit-mode .meal-item:hover { background: var(--accent); color: white; }
         .edit-mode .day-card { cursor: pointer; }
         .day-card.active { border-color: var(--primary); }
-        .add-meal-btn { display: none !important; }
+        .add-meal-btn { display: none !important; border: 2px dashed #ccc; background: white; }
         .edit-mode .add-meal-btn { display: flex !important; }
         .history-footer { margin-top: 20px; display: flex; gap: 10px; width: 100%; }
         .btn-hist { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; height: 96vh; overflow-y: auto; }
+        .modal-box { background: white; padding: 15px; border-radius: 24px; width: 90%; max-width: 500px; height: 96vh; overflow-y: auto; transition: background 0.3s ease;}
         .recipe-box strong { display: block; margin-top: 10px; color: var(--primary); text-transform: uppercase; font-size: 0.75rem; }
         textarea { width: 95%; border-radius: 10px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
         .zutat-row { display: flex; gap: 2px; margin-bottom: 5px; }
@@ -973,13 +1059,12 @@
         .tag-checkbox { display: none; }
         .tag-icon-display { transition: all 0.2s; }
 
-        /* Der hochgestellte Benachrichtigungspunkt */
         .notification-dot { display: none; width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; transform: translateY(-10px); box-shadow: 0 0 4px rgba(239, 68, 68, 0.5); }
 
         .last-edit-popup { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); padding: 10px 16px; border-radius: 12px; font-size: 0.85rem; color: #1e293b; white-space: nowrap; font-weight: 500; z-index: 9999; cursor: default; pointer-events: auto; }
         .last-edit-popup::before { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg); width: 12px; height: 12px; background: white; border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; }
 
-        /* RESPONSIVE MEDIA QUERIES (Handy / Tablet / Desktop) */
+        /* RESPONSIVE MEDIA QUERIES */
         @media (max-width: 600px) { 
             .week-grid { grid-template-columns: 1fr; } 
             .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; } 
@@ -989,81 +1074,26 @@
             .week-grid { grid-template-columns: repeat(2, 1fr); } 
         }
 
-        /* DAS NEUE DESKTOP LAYOUT (Ab 1024px) */
+        /* DESKTOP LAYOUT (Ab 1024px) */
         @media (min-width: 1024px) { 
-            .desktop-layout {
-                display: flex;
-                flex-direction: row;
-                gap: 20px;
-                width: 100%;
-                /*max-width: 1800px;*/
-                align-items: flex-start;
-                box-sizing: border-box;
-            }
-
-            .column-left {
-                width: 25%;
-                max-height: calc(100vh - 160px); /* Damit es scrollbar ist und hinter der Header-Leiste passt */
-                overflow-y: auto;
-                scrollbar-width: none; /* Versteckt Scrollbalken für sauberen Look */
-            }
+            .desktop-layout { display: flex; flex-direction: row; gap: 20px; width: 100%; align-items: flex-start; box-sizing: border-box; }
+            .column-left { width: 25%; max-height: calc(100vh - 160px); overflow-y: auto; scrollbar-width: none; }
             .column-left::-webkit-scrollbar { display: none; }
-
-            .column-middle {
-                width: 55%;
-                max-height: calc(100vh - 160px);
-                overflow-y: auto;
-                scrollbar-width: none;
-            }
+            .column-middle { width: 55%; max-height: calc(100vh - 160px); overflow-y: auto; scrollbar-width: none; }
             .column-middle::-webkit-scrollbar { display: none; }
-
-            .column-right {
-                width: 20%;
-                max-height: calc(100vh - 160px);
-                overflow-y: auto;
-                scrollbar-width: none;
-            }
+            .column-right { width: 20%; max-height: calc(100vh - 160px); overflow-y: auto; scrollbar-width: none; }
             .column-right::-webkit-scrollbar { display: none; }
 
-            /* Desktop: Wochenkalender wieder als 1 Spalte (wie von dir im Bild gewünscht) */
             .week-grid { grid-template-columns: 1fr !important; }
-
             .day-card { padding: 15px; } 
             .day-info-col { min-width: 90px; } 
             .selected-meal { font-size: 1.05rem; } 
             .chef-selector { left: 95px; } 
-            
             .storage-section { width: 100%; margin-top: 0; box-sizing: border-box; }
 
-            /* Mache das Einkaufs-Modal zu einem fixen, sichtbaren Element auf Desktop */
-            #shoppingListModal {
-                position: static !important;
-                display: flex !important;
-                background: transparent;
-                width: 100%;
-                height: auto;
-                z-index: 1;
-                pointer-events: none; /* Verhindert das Schließen bei versehentlichem Klick daneben */
-                align-items: flex-start !important;
-            }
-            
-            #shoppingListModal .modal-box {
-                pointer-events: auto; /* Inhalt selbst bleibt klickbar */
-                width: 100%;
-                max-width: none;
-                height: auto;
-                min-height: calc(100vh - 160px);
-                box-shadow: 0 10px 15px rgba(0,0,0,0.05);
-                margin: 0;
-                padding: 15px;
-                box-sizing: border-box;
-            }
-
-            #editTagsContainer {
-                justify-content: flex-start !important; /* "start" oder "flex-start" rückt die Icons nach links */
-            }
-
-            /* Verstecke den Einkaufsliste-Button unten, sowie den Schließen-Button im Modal */
+            #shoppingListModal { position: static !important; display: flex !important; background: transparent; width: 100%; height: auto; z-index: 1; pointer-events: none; align-items: flex-start !important; }
+            #shoppingListModal .modal-box { pointer-events: auto; width: 100%; max-width: none; height: auto; min-height: calc(100vh - 160px); box-shadow: 0 10px 15px rgba(0,0,0,0.05); margin: 0; padding: 15px; box-sizing: border-box; }
+            #editTagsContainer { justify-content: flex-start !important; }
             .history-footer { display: none !important; }
             .close-modal-btn { display: none !important; }
         }
@@ -1090,6 +1120,10 @@
                 <label class="switch"><input type="checkbox" id="editToggle" onchange="toggleEditMode()"><span class="slider"></span></label>
                 <small style="font-weight:600; color:#64748b">Bearbeiten</small>
             </div>
+            
+            <button id="themeToggleBtn" onclick="window.toggleTheme()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; margin-left: 5px; padding: 5px;" title="Design umschalten">
+                🌙
+            </button>
         </div>
         
         <div class="desktop-layout">
@@ -1135,7 +1169,8 @@
                 </div>
             </div>
             
-        </div> <div class="history-footer">
+        </div> 
+        <div class="history-footer">
             <button class="btn-hist" onclick="window.showShoppingList()" style="background:var(--primary)">Einkaufsliste</button>
         </div>
     </div>
