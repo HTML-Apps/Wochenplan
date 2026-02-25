@@ -45,11 +45,11 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // --- THEME LOGIK (DARK MODE) ---
+        // --- THEME LOGIK (DARK MODE) --- 📱'☀️' : '🌙';
         window.toggleTheme = () => {
             const isDark = document.body.classList.toggle('dark-mode');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            document.getElementById('themeToggleBtn').innerText = isDark ? '☀️' : '🌙';
+            document.getElementById('themeToggleBtn').innerText = isDark ? '📱' : '📱';
         };
 
         function initTheme() {
@@ -59,10 +59,10 @@
             
             if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
                 document.body.classList.add('dark-mode');
-                document.getElementById('themeToggleBtn').innerText = '☀️';
+                document.getElementById('themeToggleBtn').innerText = '📱';
             } else {
                 document.body.classList.remove('dark-mode');
-                document.getElementById('themeToggleBtn').innerText = '🌙';
+                document.getElementById('themeToggleBtn').innerText = '📱';
             }
         }
 
