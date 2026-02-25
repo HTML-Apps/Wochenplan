@@ -50,6 +50,11 @@
             const isDark = document.body.classList.toggle('dark-mode');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
             document.getElementById('themeToggleBtn').innerText = isDark ? '⚡' : '⚡';
+
+            // NEU: Den Menüplan sofort mit den neuen Farben (Schwarz vs. Pastell) neu rendern
+            if (typeof renderStorage === 'function') {
+                renderStorage(calculateCounts());
+            }
         };
 
         function initTheme() {
@@ -280,20 +285,20 @@
         }
 
         function getHeatStyle(count, min, max, mealName) {
-            // Prüfen, ob der Darkmode aktuell aktiv ist
             const isDarkMode = document.body.classList.contains('dark-mode');
 
             if (mealName === "---") {
                 return "background-color: var(--ph-bg); border-color: var(--ph-border); color: var(--ph-color);";
             }
 
-            // Basis-Farben berechnen
-            let bg, border;
+            let bg, border, textColor;
+            
+            // Farbberechnung (wie gehabt)
             if (count === 0) {
-                bg = "#f0fdf4";
+                bg = "#f0fdf4"; // hellgrün
                 border = "#bbf7d0";
             } else if (max === min) {
-                bg = "#fef9c3";
+                bg = "#fef9c3"; // gelb
                 border = "#fde047";
             } else {
                 const ratio = (count - min) / (max - min);
@@ -302,12 +307,14 @@
                 border = `hsl(${hue}, 70%, 75%)`;
             }
 
-            // NEU: Wenn Darkmode aktiv ist, Hintergrund auf schwarz setzen
+            // Unterscheidung nach Modus
             if (isDarkMode) {
-                return `background-color: #000000; border-color: ${border}; color: #e2e8f0;`;
+                // DARK MODE: Hintergrund immer schwarz, Rahmen farbig
+                return `background-color: #000000 !important; border-color: ${border} !important; color: #e2e8f0 !important;`;
+            } else {
+                // LIGHT MODE: Alles wie im Original
+                return `background-color: ${bg} !important; border-color: ${border} !important; color: #0f172a !important;`;
             }
-
-            return `background-color: ${bg}; border-color: ${border}; color: #0f172a;`;
         }
 
         async function renderStorage(counts) {
