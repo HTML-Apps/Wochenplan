@@ -789,10 +789,19 @@
             const ds = await getDoc(docRef);
             if (ds.exists()) {
                 const items = ds.data().items;
+                // Schritt 1: Der Status des angeklickten Elements wird wie bisher umgeschaltet.
                 items[index].checked = !items[index].checked;
+
+                // Schritt 2 (NEU): Die gesamte Liste wird neu sortiert.
+                // Der Vergleich `a.checked - b.checked` sorgt dafür, dass alle Elemente mit
+                // `checked: false` (Wert 0) vor denen mit `checked: true` (Wert 1) landen.
+                items.sort((a, b) => a.checked - b.checked);
+
+                // Schritt 3: Die neu sortierte Liste wird in der Datenbank gespeichert.
                 await setDoc(docRef, { items: items }, { merge: true });
             }
         };
+
 
         // --- SONSTIGE FUNKTIONEN ---
         window.setChef = async (key, chefLetter, event) => {
