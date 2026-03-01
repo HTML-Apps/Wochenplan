@@ -684,7 +684,9 @@
             activeShopFilter = filterChef || 'all';
             
             const currentKW = kwLabels[currentWeekIndex];
-            const shoppingListId = `list-2026-${currentKW.replace(' ', '')}`;
+            // NEU: Die ID ist jetzt spezifisch für den Filter (all, J oder H)
+            const filterSuffix = filterChef ? `-${filterChef}` : '-all';
+            const shoppingListId = `list-2026-${currentKW.replace(' ', '')}${filterSuffix}`;
             let consolidated = {};
 
             const weekMeals = [];
@@ -694,6 +696,7 @@
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
+            // 1. Gerichte sammeln
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
@@ -708,10 +711,12 @@
                 }
             });
 
+            // 2. Button-Styling anpassen
             document.querySelectorAll('.shop-filter-btn').forEach(btn => {
                 btn.style.border = "2px solid transparent";
                 btn.style.opacity = "0.6";
                 btn.style.transform = "scale(0.95)";
+                btn.style.boxShadow = "none"; // Sicherstellen, dass alter Schatten weg ist
             });
             const activeBtn = document.getElementById(`btn-shop-${activeShopFilter}`);
             if(activeBtn) {
@@ -726,6 +731,23 @@
                 return;
             }
 
+            // 3. Alten Status aus Firebase abrufen, um abgehakte Items zu erhalten
+            let existingItems = {};
+            try {
+                const existingDocRef = doc(db, "einkaufslisten", shoppingListId);
+                const existingDocSnap = await getDoc(existingDocRef);
+                if (existingDocSnap.exists() && Array.isArray(existingDocSnap.data().items)) {
+                    existingDocSnap.data().items.forEach(item => {
+                        // Wir nutzen denselben Key-Aufbau wie unten, um sie wiederzufinden
+                        const key = `${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`;
+                        existingItems[key] = item.checked;
+                    });
+                }
+            } catch (e) {
+                console.warn("Konnte vorherigen Listenstatus nicht laden (oder Liste existiert noch nicht).", e);
+            }
+
+            // 4. Zutaten aus den Rezepten konsolidieren
             for (const mealName of weekMeals) {
                 const mealObj = speisekammerData.find(m => m.name === mealName);
                 if (mealObj) {
@@ -734,7 +756,9 @@
                         res.data().zutaten.forEach(z => {
                             const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
                             if (!consolidated[key]) {
-                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: false };
+                                // NEU: Wir prüfen, ob das Item im alten Status schon checked war
+                                const isChecked = existingItems[key] === true;
+                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
                             }
                             consolidated[key].menge += parseFloat(z.menge || 0);
                         });
@@ -742,16 +766,19 @@
                 }
             }
 
+            // 5. In Firebase speichern (jetzt mit der filter-spezifischen ID)
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
                 items: Object.values(consolidated),
                 kw: currentKW,
                 type: listType,
+                filter: activeShopFilter, // Hilfreich für spätere Abfragen
                 updatedAt: Date.now()
             });
 
+            // 6. UI aktualisieren
             if (window.showShoppingList) {
                 window.showShoppingList(); 
-                console.log("Shoppingliste wurde neu gerendert!");
+                console.log(`Shoppingliste (${listType}) wurde neu gerendert!`);
             }
         };
 
