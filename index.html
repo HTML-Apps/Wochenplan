@@ -812,10 +812,6 @@
             listUnsubscribe = onSnapshot(doc(db, "einkaufslisten", shoppingListId), (ds) => {
                 if (!ds.exists()) {
                     
-                    // ========================================================================
-                    // KORREKTUR: Den Anzeigenamen direkt aus der Dokument-ID ableiten.
-                    // Das ist 100% zuverlässig und immun gegen Timing-Probleme.
-                    // ========================================================================
                     const docId = ds.ref.id; // z.B. "list-2026-KW10-J" oder "list-2026-KW10-all"
                     const idParts = docId.split('-');
                     const filterKeyFromId = idParts[idParts.length - 1]; // Holt den letzten Teil: "J" oder "all"
