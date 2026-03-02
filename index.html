@@ -786,32 +786,36 @@
 
         window.showShoppingList = () => {
             const currentKW = kwLabels[currentWeekIndex];
-            
-            // NEU: ID-Logik synchron zur Generierung (mit Filter-Suffix)
+
+            const filterAnzeigeNamen = {
+                'all': 'Alle',
+                'J': 'Julia',
+                'H': 'Hendrik'
+            };
+            const anzeigeName = filterAnzeigeNamen[activeShopFilter] || activeShopFilter;
+
+            // ID-Logik bleibt gleich, sie war schon korrekt.
             const filterSuffix = activeShopFilter === 'all' ? '-all' : `-${activeShopFilter}`;
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}${filterSuffix}`;
             
             const modal = document.getElementById('shoppingListModal');
             const content = document.getElementById('shoppingListContent');
-            
-            // Optische Ergänzung: Zeige im Titel an, wessen Liste es ist
-            let listSuffixText = "";
-            if (activeShopFilter === 'J') listSuffixText = " (Julia)";
-            if (activeShopFilter === 'H') listSuffixText = " (Hendrik)";
-            document.getElementById('shopTitle').innerText = `Einkaufsliste ${currentKW}`;
+
+            const listSuffixText = activeShopFilter === 'all' ? '' : ` (${anzeigeName})`;
+            document.getElementById('shopTitle').innerText = `Einkaufsliste ${currentKW}${listSuffixText}`;
             
             modal.style.display = "flex";
-
             if (listUnsubscribe) listUnsubscribe();
 
-            // Nutzt nun die filter-spezifische ID für den Realtime-Listen-Sync
             listUnsubscribe = onSnapshot(doc(db, "einkaufslisten", shoppingListId), (ds) => {
                 if (!ds.exists()) {
+
                     content.innerHTML = `
                         <div style='text-align:center; padding: 20px;'>
-                            <p style='color:#64748b;'>Noch keine Liste für <strong>${activeShopFilter === 'all' ? 'Alle' : activeShopFilter === 'J' ? 'Julia' : activeShopFilter === 'H' ? 'Hendrik' : activeShopFilter}</strong> generiert.</p>
-                            <button class="btn-hist" style="background:#64748b; onclick="window.generateShoppingList('${activeShopFilter === 'all' ? '' : activeShopFilter}')" 
-                                    style="margin-top:10px; padding: 8px 16px; cursor:pointer;">
+                            <p style='color:#64748b;'>Noch keine Liste für <strong>${anzeigeName}</strong> generiert.</p>
+                            <button class="btn-hist" 
+                                    style="background:#64748b; margin-top:10px; padding: 8px 16px; cursor:pointer;"
+                                    onclick="window.generateShoppingList('${activeShopFilter === 'all' ? '' : activeShopFilter}')">
                                 Listenbutton oben klicken
                             </button>
                         </div>`;
@@ -819,7 +823,7 @@
                 }
                 
                 const items = ds.data().items;
-                // WICHTIG: toggleListItem bekommt die korrekte shoppingListId übergeben
+                // Die Logik hier war bereits korrekt und braucht keine Änderung.
                 content.innerHTML = items.map((item, index) => `
                     <div class="shop-item">
                         <input type="checkbox" ${item.checked ? 'checked' : ''} 
@@ -831,6 +835,7 @@
                 `).join('');
             });
         };
+
 
         window.toggleListItem = async (listId, index) => {
             const docRef = doc(db, "einkaufslisten", listId);
