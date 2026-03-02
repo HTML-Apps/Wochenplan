@@ -810,7 +810,7 @@
                     content.innerHTML = `
                         <div style='text-align:center; padding: 20px;'>
                             <p style='color:#64748b;'>Noch keine Liste für <strong>${activeShopFilter === 'all' ? 'alle' : activeShopFilter}</strong> generiert.</p>
-                            <button onclick="window.generateShoppingList('${activeShopFilter === 'all' ? '' : activeShopFilter}')" 
+                            <button class="btn-hist" style="background:#64748b; onclick="window.generateShoppingList('${activeShopFilter === 'all' ? '' : activeShopFilter}')" 
                                     style="margin-top:10px; padding: 8px 16px; cursor:pointer;">
                                 Jetzt generieren
                             </button>
