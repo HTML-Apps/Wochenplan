@@ -787,21 +787,23 @@
         window.showShoppingList = () => {
             const currentKW = kwLabels[currentWeekIndex];
 
+            // Das Mapping ist weiterhin super und bleibt erhalten.
             const filterAnzeigeNamen = {
                 'all': 'Alle',
                 'J': 'Julia',
                 'H': 'Hendrik'
             };
-            const anzeigeName = filterAnzeigeNamen[activeShopFilter] || activeShopFilter;
-
-            // ID-Logik bleibt gleich, sie war schon korrekt.
+            
+            // Die ID-Generierung ist auch korrekt.
             const filterSuffix = activeShopFilter === 'all' ? '-all' : `-${activeShopFilter}`;
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}${filterSuffix}`;
             
             const modal = document.getElementById('shoppingListModal');
             const content = document.getElementById('shoppingListContent');
 
-            const listSuffixText = activeShopFilter === 'all' ? '' : ` (${anzeigeName})`;
+            // Der Titel wird weiterhin sofort und korrekt gesetzt.
+            const anzeigeNameFürTitel = filterAnzeigeNamen[activeShopFilter] || activeShopFilter;
+            const listSuffixText = activeShopFilter === 'all' ? '' : ` (${anzeigeNameFürTitel})`;
             document.getElementById('shopTitle').innerText = `Einkaufsliste ${currentKW}${listSuffixText}`;
             
             modal.style.display = "flex";
@@ -809,6 +811,17 @@
 
             listUnsubscribe = onSnapshot(doc(db, "einkaufslisten", shoppingListId), (ds) => {
                 if (!ds.exists()) {
+                    
+                    // ========================================================================
+                    // KORREKTUR: Den Anzeigenamen direkt aus der Dokument-ID ableiten.
+                    // Das ist 100% zuverlässig und immun gegen Timing-Probleme.
+                    // ========================================================================
+                    const docId = ds.ref.id; // z.B. "list-2026-KW10-J" oder "list-2026-KW10-all"
+                    const idParts = docId.split('-');
+                    const filterKeyFromId = idParts[idParts.length - 1]; // Holt den letzten Teil: "J" oder "all"
+                    
+                    // Jetzt nutzen wir das Mapping mit dem Schlüssel, den wir aus der ID extrahiert haben.
+                    const anzeigeName = filterAnzeigeNamen[filterKeyFromId] || filterKeyFromId;
 
                     content.innerHTML = `
                         <div style='text-align:center; padding: 20px;'>
@@ -823,7 +836,6 @@
                 }
                 
                 const items = ds.data().items;
-                // Die Logik hier war bereits korrekt und braucht keine Änderung.
                 content.innerHTML = items.map((item, index) => `
                     <div class="shop-item">
                         <input type="checkbox" ${item.checked ? 'checked' : ''} 
@@ -835,6 +847,7 @@
                 `).join('');
             });
         };
+
 
 
         window.toggleListItem = async (listId, index) => {
