@@ -784,12 +784,6 @@
 
         // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
-        // KORREKT (global sichtbar und von überall aufrufbar)
-        window.showNotificationDot = () => {
-            const dot = document.getElementById('notificationDot');
-            dot.style.display = 'block';
-        };
-
         // Globale Variable, um die Firebase-Subscription zu halten.
         let consumablesUnsubscribe = null; 
         // Globale Variable, um den Ladezustand zu verfolgen.
@@ -822,10 +816,8 @@
                 // Verhindert, dass der rote Punkt beim ersten Laden angezeigt wird.
                 if (isInitialConsumablesLoad) {
                     isInitialConsumablesLoad = false;
-                } else {
-                    // Bei allen nachfolgenden Änderungen (add/delete) wird der Punkt angezeigt.
-                    window.showNotificationDot(); 
                 }
+                // Der direkte Aufruf von showNotificationDot() wurde hier entfernt.
 
                 listContainer.innerHTML = ""; // Leert die Liste für die Neuzeichnung.
 
@@ -874,6 +866,7 @@
                         createdAt: Date.now()
                     });
                     input.value = ""; // Eingabefeld leeren
+                    await window.trackEdit(); // NEU: Bearbeitung protokollieren
                 } catch (error) {
                     console.error("Fehler beim Hinzufügen des Verbrauchsstoffes: ", error);
                     alert("Konnte den Eintrag nicht hinzufügen.");
@@ -881,17 +874,16 @@
             }
         };
 
+
         // --- VERBESSERTE LÖSCHFUNKTION ---
         // Diese Version ist robuster und vermeidet Probleme mit dem confirm-Dialog.
 
-        window.deleteConsumableItem = async (itemId) => {
+                window.deleteConsumableItem = async (itemId) => {
             // Findet den Button und das zugehörige Item-Element im HTML
             const button = event.target;
             const itemElement = button.closest('.consumable-item');
 
             // 1. UI SOFORT AKTUALISIEREN (Optimistic UI Update)
-            // Wir tun so, als wäre das Löschen bereits erfolgreich gewesen.
-            // Das Element wird ausgeblendet und dann entfernt, was für einen flüssigen Effekt sorgt.
             if (itemElement) {
                 itemElement.style.transition = 'opacity 0.3s ease-out';
                 itemElement.style.opacity = '0';
@@ -901,6 +893,7 @@
             try {
                 // Das eigentliche Löschen in Firebase.
                 await deleteDoc(doc(db, "verbrauchsstoffe", itemId));
+                await window.trackEdit(); // NEU: Bearbeitung protokollieren
                 
                 // onSnapshot wird diese Änderung im Hintergrund bemerken und den Datenstand
                 // offiziell synchronisieren, aber für den Nutzer ist das Item bereits weg.
@@ -910,12 +903,12 @@
                 alert("Konnte den Eintrag nicht löschen. Die Liste wird neu geladen.");
                 
                 // 3. IM FEHLERFALL: UI ZURÜCKSETZEN
-                // Wenn das Löschen fehlschlägt, machen wir das Element wieder sichtbar.
                 if (itemElement) {
                     itemElement.style.opacity = '1';
                 }
             }
         };
+
 
 
 
