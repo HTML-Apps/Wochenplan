@@ -782,59 +782,81 @@
             }
         };
 
-        // --- VERBRAUCHSSTOFFE LOGIK ---
-        let consumablesUnsubscribe = null;
-        let consumablesInitialLoad = true; // Neue Variable
+        // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
+        // Globale Variable, um die Firebase-Subscription zu halten.
+        let consumablesUnsubscribe = null; 
+        // Globale Variable, um den Ladezustand zu verfolgen.
+        let isInitialConsumablesLoad = true;
+
+        // Diese Funktion öffnet das Popup und startet die Live-Synchronisation.
         window.showConsumablesModal = () => {
             const modal = document.getElementById('consumablesModal');
-            modal.style.display = 'flex';
             const listContainer = document.getElementById('consumablesListContainer');
+            
+            modal.style.display = 'flex';
             listContainer.innerHTML = "<p>Lade...</p>";
 
-            if (consumablesUnsubscribe) consumablesUnsubscribe();
+            // Setzt den Ladezustand zurück, wenn das Modal geöffnet wird.
+            isInitialConsumablesLoad = true;
 
+            // Beendet eine alte Subscription, falls eine existiert, um doppelte Listener zu vermeiden.
+            if (consumablesUnsubscribe) {
+                consumablesUnsubscribe();
+            }
+
+            // Baut die Verbindung zur "verbrauchsstoffe"-Sammlung in Firebase auf.
             const consumablesCollection = collection(db, "verbrauchsstoffe");
             const consumablesQuery = query(consumablesCollection, orderBy("createdAt", "asc"));
 
+            // onSnapshot startet die Live-Beobachtung.
+            // Dieser Code wird bei JEDER Änderung in der Datenbank (hinzufügen, löschen) automatisch ausgeführt.
             consumablesUnsubscribe = onSnapshot(consumablesQuery, (snapshot) => {
-            // Nur anzeigen, wenn es nicht der erste Ladevorgang ist
-            if (consumablesInitialLoad) {
-                consumablesInitialLoad = false;
-            } else {
-                window.showNotificationDot(); // <-- HIER wird der Punkt aktiviert
-            }
-
-            listContainer.innerHTML = ""; // Liste vor dem Neuzeichnen leeren
-            if (snapshot.empty) {
-                listContainer.innerHTML = "<p style='text-align:center; color: #94a3b8;'>Noch keine Einträge.</p>";
-                return;
-            }
-            snapshot.forEach((doc) => {
-                const item = doc.data();
-                const itemId = doc.id;
                 
-                const itemElement = document.createElement('div');
-                itemElement.className = 'consumable-item';
-                itemElement.innerHTML = `
-                    <span>${item.name}</span>
-                    <button class="consumable-item-delete-btn" onclick="window.deleteConsumableItem('${itemId}')">×</button>
-                `;
-                listContainer.appendChild(itemElement);
-            });
-        });
+                // Verhindert, dass der rote Punkt beim ersten Laden angezeigt wird.
+                if (isInitialConsumablesLoad) {
+                    isInitialConsumablesLoad = false;
+                } else {
+                    // Bei allen nachfolgenden Änderungen (add/delete) wird der Punkt angezeigt.
+                    window.showNotificationDot(); 
+                }
 
+                listContainer.innerHTML = ""; // Leert die Liste für die Neuzeichnung.
+
+                if (snapshot.empty) {
+                    listContainer.innerHTML = "<p style='text-align:center; color: #94a3b8;'>Noch keine Einträge.</p>";
+                    return;
+                }
+                
+                // Geht jeden Eintrag aus der Datenbank durch und erstellt das HTML.
+                snapshot.forEach((doc) => {
+                    const item = doc.data();
+                    const itemId = doc.id;
+                    
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'consumable-item';
+                    itemElement.innerHTML = `
+                        <span>${item.name}</span>
+                        <button class="consumable-item-delete-btn" onclick="window.deleteConsumableItem('${itemId}')">×</button>
+                    `;
+                    listContainer.appendChild(itemElement);
+                });
+            });
         };
 
+        // Schließt das Modal und BEENDET die Live-Verbindung, um Ressourcen zu sparen.
         window.closeConsumablesModal = () => {
             const modal = document.getElementById('consumablesModal');
             modal.style.display = 'none';
+            
+            // WICHTIG: Die Live-Verbindung wird hier getrennt.
             if (consumablesUnsubscribe) {
                 consumablesUnsubscribe();
                 consumablesUnsubscribe = null;
             }
         };
 
+        // Fügt einen neuen Eintrag hinzu. onSnapshot kümmert sich automatisch um die Aktualisierung der Ansicht.
         window.addConsumableItem = async () => {
             const input = document.getElementById('consumableInput');
             const itemName = input.value.trim();
@@ -853,7 +875,9 @@
             }
         };
 
+        // Löscht einen Eintrag. onSnapshot kümmert sich automatisch um die Aktualisierung der Ansicht.
         window.deleteConsumableItem = async (itemId) => {
+            // Die Bestätigung kann optional entfernt werden, wenn sie stört.
             if (confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
                 try {
                     await deleteDoc(doc(db, "verbrauchsstoffe", itemId));
@@ -863,6 +887,7 @@
                 }
             }
         };
+
 
         let listUnsubscribe = null;
 
