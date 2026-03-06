@@ -782,13 +782,9 @@
             }
         };
 
-
-
-
-
-
         // --- VERBRAUCHSSTOFFE LOGIK ---
         let consumablesUnsubscribe = null;
+        let consumablesInitialLoad = true; // Neue Variable
 
         window.showConsumablesModal = () => {
             const modal = document.getElementById('consumablesModal');
@@ -802,24 +798,32 @@
             const consumablesQuery = query(consumablesCollection, orderBy("createdAt", "asc"));
 
             consumablesUnsubscribe = onSnapshot(consumablesQuery, (snapshot) => {
-                listContainer.innerHTML = ""; // Liste vor dem Neuzeichnen leeren
-                if (snapshot.empty) {
-                    listContainer.innerHTML = "<p style='text-align:center; color: #94a3b8;'>Noch keine Einträge.</p>";
-                    return;
-                }
-                snapshot.forEach((doc) => {
-                    const item = doc.data();
-                    const itemId = doc.id;
-                    
-                    const itemElement = document.createElement('div');
-                    itemElement.className = 'consumable-item';
-                    itemElement.innerHTML = `
-                        <span>${item.name}</span>
-                        <button class="consumable-item-delete-btn" onclick="window.deleteConsumableItem('${itemId}')">×</button>
-                    `;
-                    listContainer.appendChild(itemElement);
-                });
+            // Nur anzeigen, wenn es nicht der erste Ladevorgang ist
+            if (consumablesInitialLoad) {
+                consumablesInitialLoad = false;
+            } else {
+                window.showNotificationDot(); // <-- HIER wird der Punkt aktiviert
+            }
+
+            listContainer.innerHTML = ""; // Liste vor dem Neuzeichnen leeren
+            if (snapshot.empty) {
+                listContainer.innerHTML = "<p style='text-align:center; color: #94a3b8;'>Noch keine Einträge.</p>";
+                return;
+            }
+            snapshot.forEach((doc) => {
+                const item = doc.data();
+                const itemId = doc.id;
+                
+                const itemElement = document.createElement('div');
+                itemElement.className = 'consumable-item';
+                itemElement.innerHTML = `
+                    <span>${item.name}</span>
+                    <button class="consumable-item-delete-btn" onclick="window.deleteConsumableItem('${itemId}')">×</button>
+                `;
+                listContainer.appendChild(itemElement);
             });
+        });
+
         };
 
         window.closeConsumablesModal = () => {
@@ -859,15 +863,6 @@
                 }
             }
         };
-
-
-
-
-
-
-
-
-
 
         let listUnsubscribe = null;
 
