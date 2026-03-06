@@ -784,6 +784,12 @@
 
         // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
+        // KORREKT (global sichtbar und von überall aufrufbar)
+        window.showNotificationDot = () => {
+            const dot = document.getElementById('notificationDot');
+            dot.style.display = 'block';
+        };
+
         // Globale Variable, um die Firebase-Subscription zu halten.
         let consumablesUnsubscribe = null; 
         // Globale Variable, um den Ladezustand zu verfolgen.
