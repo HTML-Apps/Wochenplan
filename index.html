@@ -875,18 +875,42 @@
             }
         };
 
-        // Löscht einen Eintrag. onSnapshot kümmert sich automatisch um die Aktualisierung der Ansicht.
+        // --- VERBESSERTE LÖSCHFUNKTION ---
+        // Diese Version ist robuster und vermeidet Probleme mit dem confirm-Dialog.
+
         window.deleteConsumableItem = async (itemId) => {
-            // Die Bestätigung kann optional entfernt werden, wenn sie stört.
-            if (confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
-                try {
-                    await deleteDoc(doc(db, "verbrauchsstoffe", itemId));
-                } catch (error) {
-                    console.error("Fehler beim Löschen des Eintrags: ", error);
-                    alert("Konnte den Eintrag nicht löschen.");
+            // Findet den Button und das zugehörige Item-Element im HTML
+            const button = event.target;
+            const itemElement = button.closest('.consumable-item');
+
+            // 1. UI SOFORT AKTUALISIEREN (Optimistic UI Update)
+            // Wir tun so, als wäre das Löschen bereits erfolgreich gewesen.
+            // Das Element wird ausgeblendet und dann entfernt, was für einen flüssigen Effekt sorgt.
+            if (itemElement) {
+                itemElement.style.transition = 'opacity 0.3s ease-out';
+                itemElement.style.opacity = '0';
+            }
+
+            // 2. LÖSCHEN IN DER DATENBANK ANSTOSSEN (im Hintergrund)
+            try {
+                // Das eigentliche Löschen in Firebase.
+                await deleteDoc(doc(db, "verbrauchsstoffe", itemId));
+                
+                // onSnapshot wird diese Änderung im Hintergrund bemerken und den Datenstand
+                // offiziell synchronisieren, aber für den Nutzer ist das Item bereits weg.
+
+            } catch (error) {
+                console.error("Fehler beim Löschen des Eintrags: ", error);
+                alert("Konnte den Eintrag nicht löschen. Die Liste wird neu geladen.");
+                
+                // 3. IM FEHLERFALL: UI ZURÜCKSETZEN
+                // Wenn das Löschen fehlschlägt, machen wir das Element wieder sichtbar.
+                if (itemElement) {
+                    itemElement.style.opacity = '1';
                 }
             }
         };
+
 
 
         let listUnsubscribe = null;
