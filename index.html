@@ -27,7 +27,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         // 1. Firebase Konfiguration
@@ -782,6 +782,93 @@
             }
         };
 
+
+
+
+
+
+        // --- VERBRAUCHSSTOFFE LOGIK ---
+        let consumablesUnsubscribe = null;
+
+        window.showConsumablesModal = () => {
+            const modal = document.getElementById('consumablesModal');
+            modal.style.display = 'flex';
+            const listContainer = document.getElementById('consumablesListContainer');
+            listContainer.innerHTML = "<p>Lade...</p>";
+
+            if (consumablesUnsubscribe) consumablesUnsubscribe();
+
+            const consumablesCollection = collection(db, "verbrauchsstoffe");
+            const consumablesQuery = query(consumablesCollection, orderBy("createdAt", "asc"));
+
+            consumablesUnsubscribe = onSnapshot(consumablesQuery, (snapshot) => {
+                listContainer.innerHTML = ""; // Liste vor dem Neuzeichnen leeren
+                if (snapshot.empty) {
+                    listContainer.innerHTML = "<p style='text-align:center; color: #94a3b8;'>Noch keine Einträge.</p>";
+                    return;
+                }
+                snapshot.forEach((doc) => {
+                    const item = doc.data();
+                    const itemId = doc.id;
+                    
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'consumable-item';
+                    itemElement.innerHTML = `
+                        <span>${item.name}</span>
+                        <button class="consumable-item-delete-btn" onclick="window.deleteConsumableItem('${itemId}')">×</button>
+                    `;
+                    listContainer.appendChild(itemElement);
+                });
+            });
+        };
+
+        window.closeConsumablesModal = () => {
+            const modal = document.getElementById('consumablesModal');
+            modal.style.display = 'none';
+            if (consumablesUnsubscribe) {
+                consumablesUnsubscribe();
+                consumablesUnsubscribe = null;
+            }
+        };
+
+        window.addConsumableItem = async () => {
+            const input = document.getElementById('consumableInput');
+            const itemName = input.value.trim();
+
+            if (itemName) {
+                try {
+                    await addDoc(collection(db, "verbrauchsstoffe"), {
+                        name: itemName,
+                        createdAt: Date.now()
+                    });
+                    input.value = ""; // Eingabefeld leeren
+                } catch (error) {
+                    console.error("Fehler beim Hinzufügen des Verbrauchsstoffes: ", error);
+                    alert("Konnte den Eintrag nicht hinzufügen.");
+                }
+            }
+        };
+
+        window.deleteConsumableItem = async (itemId) => {
+            if (confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
+                try {
+                    await deleteDoc(doc(db, "verbrauchsstoffe", itemId));
+                } catch (error) {
+                    console.error("Fehler beim Löschen des Eintrags: ", error);
+                    alert("Konnte den Eintrag nicht löschen.");
+                }
+            }
+        };
+
+
+
+
+
+
+
+
+
+
         let listUnsubscribe = null;
 
         window.showShoppingList = () => {
@@ -1189,6 +1276,43 @@
         .last-edit-popup { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); padding: 10px 16px; border-radius: 12px; font-size: 0.85rem; color: #1e293b; white-space: nowrap; font-weight: 500; z-index: 9999; cursor: default; pointer-events: auto; }
         .last-edit-popup::before { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg); width: 12px; height: 12px; background: white; border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; }
 
+
+        /* Styling für die Verbrauchsstoff-Liste */
+        .consumable-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.95rem;
+        }
+
+        .consumable-item-delete-btn {
+            background: #ef4444; /* Rot */
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        /* Dark-Mode-Anpassungen für die neuen Elemente */
+        body.dark-mode .consumable-item {
+            border-bottom-color: #334155;
+            color: #e2e8f0;
+        }
+        body.dark-mode #consumablesListContainer p {
+            color: #94a3b8;
+        }
+
+
         /* RESPONSIVE MEDIA QUERIES */
         @media (max-width: 600px) { 
             .week-grid { grid-template-columns: 1fr; } 
@@ -1296,7 +1420,8 @@
             
         </div> 
         <div class="history-footer">
-            <button class="btn-hist" onclick="window.showShoppingList()" style="background:var(--primary)">Einkaufsliste</button>
+            <button class="btn-hist" onclick="window.showShoppingList()">Einkaufsliste</button>
+            <button class="btn-hist" onclick="window.showConsumablesModal()" style="background: #5d5b7a;">Verbrauchsstoffe</button>
         </div>
     </div>
 
@@ -1338,5 +1463,35 @@
             </div>
         </div>
     </div>
+
+
+    <!-- Modal für Verbrauchsstoffe -->
+    <div id="consumablesModal" class="modal" onclick="window.closeConsumablesModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h2 style="margin-top:0; color: var(--primary);">Verbrauchsstoffe</h2>
+
+            <div class="consumables-editor">
+                <!-- Eingabefeld -->
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+                    <input type="text" id="consumableInput" placeholder="z.B. Spülmaschinentabs" style="flex-grow: 1; padding: 12px; border-radius: 10px; border: 1px solid #ccc;">
+                </div>
+                <!-- Button zum Hinzufügen -->
+                <button class="btn-hist" onclick="window.addConsumableItem()" style="width: 100%; margin-bottom: 20px;">+ Hinzufügen</button>
+
+                <!-- Liste für die Einträge -->
+                <div id="consumablesListContainer">
+                    <!-- Einträge werden hier per JavaScript eingefügt -->
+                </div>
+            </div>
+
+            <!-- Schließen-Button im Footer -->
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-hist" style="background:#64748b; flex: 1;" onclick="window.closeConsumablesModal()">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+
+
 </body>
 </html>
