@@ -287,7 +287,6 @@
             });
         }
 
-
         function calculateCounts() {
             const counts = {};
             Object.values(planData).forEach(val => {
@@ -793,7 +792,6 @@
             }
         };
 
-
         // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
         // Globale Variable, um die Firebase-Subscription zu halten.
@@ -982,8 +980,6 @@
             });
         };
 
-
-
         window.toggleListItem = async (listId, index) => {
             const docRef = doc(db, "einkaufslisten", listId);
             const ds = await getDoc(docRef);
@@ -1001,7 +997,6 @@
                 await setDoc(docRef, { items: items }, { merge: true });
             }
         };
-
 
         // --- SONSTIGE FUNKTIONEN ---
         window.setChef = async (key, chefLetter, event) => {
@@ -1209,7 +1204,6 @@
             color: #e2e8f0;
         }
 
-
         body.dark-mode input, 
         body.dark-mode textarea {
             background: #0f172a;
@@ -1327,7 +1321,6 @@
         .last-edit-popup { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: white; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); padding: 10px 16px; border-radius: 12px; font-size: 0.85rem; color: #1e293b; white-space: nowrap; font-weight: 500; z-index: 9999; cursor: default; pointer-events: auto; }
         .last-edit-popup::before { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg); width: 12px; height: 12px; background: white; border-left: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; }
 
-
         /* Styling für die Verbrauchsstoff-Liste */
         .consumable-item {
             display: flex;
@@ -1362,7 +1355,6 @@
         body.dark-mode #consumablesListContainer p {
             color: #94a3b8;
         }
-
 
         /* RESPONSIVE MEDIA QUERIES */
         @media (max-width: 600px) { 
@@ -1515,7 +1507,6 @@
         </div>
     </div>
 
-
     <!-- Modal für Verbrauchsstoffe -->
     <div id="consumablesModal" class="modal" onclick="window.closeConsumablesModal()">
         <div class="modal-box" onclick="event.stopPropagation()">
@@ -1541,8 +1532,5 @@
             </div>
         </div>
     </div>
-
-
-
 </body>
 </html>
