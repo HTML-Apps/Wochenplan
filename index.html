@@ -302,17 +302,44 @@
             });
         }
 
-
-
         function calculateCounts() {
             const counts = {};
-            Object.values(planData).forEach(val => {
-                const name = (val && typeof val === 'object') ? val.meal : val;
-                if (name && name !== "---") {
-                    counts[name] = (counts[name] || 0) + 1;
-                }
+            const lastPlanned = {};
+
+            // 1. Initialisiere Zähler für alle Gerichte aus der Speisekammer
+            speisekammerData.forEach(meal => {
+                counts[meal.id] = 0; // Wir verwenden die ID als Schlüssel
             });
-            return counts;
+
+            // 2. Iteriere durch den Plan und zähle die Vorkommen jeder mealId
+            for (const key in planData) {
+                const data = planData[key];
+
+                // --- GEÄNDERTE LOGIK ---
+                // Wir prüfen jetzt, ob das Objekt existiert UND eine 'mealId' hat.
+                if (data && typeof data === 'object' && data.mealId) {
+                    const mealId = data.mealId;
+
+                    // Zähle das Vorkommen
+                    if (counts.hasOwnProperty(mealId)) {
+                        counts[mealId]++;
+                    }
+
+                    // Finde das Datum des letzten Plans für dieses Gericht
+                    // Der 'key' hat das Format 'YYYY-KWXX-Wochentag'
+                    const parts = key.split('-');
+                    if (parts.length === 3) {
+                        const kw = parseInt(parts[1].replace('KW', ''));
+                        // Vergleiche und speichere nur die höchste (also letzte) Kalenderwoche
+                        if (!lastPlanned[mealId] || kw > lastPlanned[mealId]) {
+                            lastPlanned[mealId] = kw;
+                        }
+                    }
+                }
+            }
+            
+            // Gib beide Informationen zurück
+            return { counts, lastPlanned };
         }
 
         function getHeatStyle(count, min, max, mealName) {
@@ -1044,75 +1071,66 @@
             }
 
             // Dieser Code ist Teil Ihrer 'renderCalendar'-Funktion
+
             document.querySelectorAll('.day-card').forEach(card => {
                 card.addEventListener('click', () => {
                     const day = card.dataset.day;
-                    const kw = currentWeekIndex + 1; // Annahme: currentWeekIndex ist 0-basiert
+                    const kw = currentWeekIndex + 1;
                     const modal = document.getElementById('add-meal-modal');
                     const mealSelect = document.getElementById('meal-select');
-                    
+                    const chefRadios = modal.querySelectorAll('input[name="chef-radio"]'); // Lese Radios innerhalb des Modals
+
                     // Modal-Titel setzen
                     document.getElementById('modal-title').innerText = `${day}, KW ${kw}`;
 
-                    // --- GEÄNDERTE LOGIK START ---
-
-                    // 1. Dropdown leeren und mit Gerichten füllen
+                    // 1. Dropdown leeren und neu füllen (Ihre Logik hier ist bereits korrekt)
                     mealSelect.innerHTML = '<option value="">--- Gericht entfernen ---</option>';
                     speisekammerData.sort((a,b) => a.name.localeCompare(b.name)).forEach(meal => {
                         const option = document.createElement('option');
-                        // WICHTIG: Der 'value' der Option ist jetzt die einzigartige ID des Gerichts.
-                        option.value = meal.id; 
-                        // Der für den Benutzer sichtbare Text bleibt der Name des Gerichts.
+                        option.value = meal.id;
                         option.innerText = meal.name;
                         mealSelect.appendChild(option);
                     });
 
-                    // 2. Bestehende Auswahl im Modal anzeigen
+                    // 2. Bestehende Auswahl im Modal anzeigen (Ihre Logik hier ist bereits korrekt)
                     const key = `2026-KW${kw}-${day}`;
                     const existingData = planData[key];
                     if (existingData && typeof existingData === 'object') {
-                        // Wir prüfen auf 'mealId', nicht mehr auf 'meal'.
                         if (existingData.mealId) {
                             mealSelect.value = existingData.mealId;
                         }
                         if (existingData.chef) {
                             document.getElementById(`chef-${existingData.chef.toLowerCase()}`).checked = true;
                         } else {
-                            document.getElementById('chef-j').checked = true; // Standard-Chef
+                            document.getElementById('chef-j').checked = true;
                         }
                     } else {
-                        document.getElementById('chef-j').checked = true; // Standard-Chef
+                        document.getElementById('chef-j').checked = true;
                     }
 
                     modal.style.display = 'flex';
 
-                    // 3. Speicher-Logik
+                    // 3. Speicher-Logik - JETZT KORRIGIERT
                     document.getElementById('save-meal-btn').onclick = async () => {
-                        // Wir lesen die ausgewählte ID aus dem Dropdown.
+                        // --- GEÄNDERTE LOGIK ---
+                        // Wir lesen die Werte direkt und zuverlässig zum Zeitpunkt des Klicks.
                         const selectedMealId = mealSelect.value;
-                        const selectedChef = document.querySelector('input[name="chef-radio"]:checked').value;
+                        let selectedChef = null;
+                        chefRadios.forEach(radio => {
+                            if (radio.checked) {
+                                selectedChef = radio.value;
+                            }
+                        });
+                        // --- GEÄNDERTE LOGIK ENDE ---
                         
                         let updateData;
 
                         if (selectedMealId) {
-                            // Wenn eine ID ausgewählt ist, speichern wir das Objekt mit 'mealId'.
-                            updateData = {
-                                [key]: {
-                                    mealId: selectedMealId,
-                                    chef: selectedChef
-                                }
-                            };
+                            updateData = { [key]: { mealId: selectedMealId, chef: selectedChef } };
                         } else {
-                            // Wenn nichts ausgewählt ist (leerer Value), entfernen wir das Gericht.
-                            updateData = {
-                                [key]: {
-                                    mealId: null,
-                                    chef: null
-                                }
-                            };
+                            updateData = { [key]: { mealId: null, chef: null } };
                         }
 
-                        // In Firebase speichern und Metadaten aktualisieren (wie in Ihrem Originalcode)
                         try {
                             await setDoc(doc(db, "planung", "wochenplan2026"), updateData, { merge: true });
                             await setDoc(doc(db, "planung", "metadata"), {
@@ -1126,19 +1144,12 @@
                         }
                     };
 
-                    // --- GEÄNDERTE LOGIK ENDE ---
-
                     // Schließen-Logik (unverändert)
-                    document.getElementById('modal-close-btn').onclick = () => {
-                        modal.style.display = 'none';
-                    };
-                    window.onclick = (event) => {
-                        if (event.target == modal) {
-                            modal.style.display = 'none';
-                        }
-                    };
+                    document.getElementById('modal-close-btn').onclick = () => { modal.style.display = 'none'; };
+                    window.onclick = (event) => { if (event.target == modal) { modal.style.display = 'none'; } };
                 });
             });
+
 
         };
 
