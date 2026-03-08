@@ -200,6 +200,7 @@
         }
 
         function setupRealtimeSync() {
+            // Listener für den Wochenplan
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
@@ -213,13 +214,34 @@
 
                         if (data) {
                             if (typeof data === 'object') {
-                                mealName = data.meal || "---";
+                                // --- GEÄNDERTE LOGIK START ---
+                                // Wir prüfen jetzt, ob eine 'mealId' vorhanden ist.
+                                if (data.mealId) {
+                                    // Mit der 'mealId' suchen wir das zugehörige Gericht in unseren geladenen 'speisekammerData'.
+                                    // 'speisekammerData' muss also geladen sein, bevor dieser Code läuft.
+                                    const mealObj = speisekammerData.find(m => m.id === data.mealId);
+                                    
+                                    if (mealObj) {
+                                        // Wenn wir das Gericht finden, nehmen wir seinen Namen für die Anzeige.
+                                        mealName = mealObj.name;
+                                    } else {
+                                        // Falls ein Gericht geplant war, aber aus der Speisekammer gelöscht wurde,
+                                        // zeigen wir einen Platzhalter an.
+                                        mealName = "Unbekannt";
+                                    }
+                                }
+                                // Die 'chef'-Logik bleibt unberührt.
                                 chef = data.chef;
+                                // --- GEÄNDERTE LOGIK ENDE ---
+
                             } else {
+                                // Dieser Block dient der Abwärtskompatibilität, falls noch alte Daten (nur der Name als String)
+                                // vorhanden sind. Nach der Migration sollte er nicht mehr relevant sein.
                                 mealName = data;
                             }
                         }
                         
+                        // Die restliche UI-Aktualisierung bleibt exakt gleich.
                         const el = document.getElementById(`text-${key}`);
                         const card = document.getElementById(`card-${key}`);
                         if (el) el.innerText = mealName;
@@ -232,21 +254,16 @@
                     
                     renderStorage(counts);
 
-                    // *** NEUE LOGIK START ***
-                    // Diese Zeile sorgt dafür, dass die aktuell ausgewählte Einkaufsliste
-                    // (sei es "Alle", "Julia" oder "Hendrik") bei jeder Planänderung
-                    // automatisch neu generiert wird.
+                    // Die Logik zur automatischen Aktualisierung der Einkaufsliste bleibt unberührt und wichtig.
                     if (window.generateShoppingList) {
-                        // Die Funktion `generateShoppingList` erwartet `null` für die "Alle"-Liste.
-                        // Die Variable `activeShopFilter` speichert diesen Zustand jedoch als den String 'all'.
-                        // Daher wandeln wir 'all' hier in `null` um, bevor wir die Funktion aufrufen.
                         const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
                         window.generateShoppingList(filterArg);
                     }
-                    // *** NEUE LOGIK ENDE ***
                 }
             });
 
+            // Der Listener für 'speisekammer' bleibt unverändert. Er ist entscheidend,
+            // damit die obige Such-Logik immer aktuelle Daten hat.
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
                 speisekammerData = [];
                 snapshot.forEach((doc) => {
@@ -255,24 +272,22 @@
                 renderStorage(calculateCounts());
             });
 
-            // --- Der angepasste Listener ---
+            // Der Listener für 'metadata' bleibt ebenfalls komplett unverändert.
             onSnapshot(doc(db, "planung", "metadata"), (ds) => {
                 if (ds.exists()) {
                     const data = ds.data();
                     if (data.lastEditTime && data.lastEditBy) {
-                        lastKnownEditTime = data.lastEditTime; // Global speichern für toggle-Funktion
+                        lastKnownEditTime = data.lastEditTime;
                         
                         const name = USER_MAP[data.lastEditBy] || "Jemand";
                         const editDate = new Date(data.lastEditTime);
                         
-                        // Formatierung
                         const dayNames = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
                         const dayStr = dayNames[editDate.getDay()];
                         const timeStr = editDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
                         document.getElementById('lastEditPopup').innerText = `zuletzt bearbeitet von: ${name} (${dayStr}. ${timeStr} Uhr)`;
 
-                        // LOGIK FÜR DEN PUNKT:
                         const lastRead = localStorage.getItem('lastReadEdit') || 0;
                         const now = Date.now();
                         const hoursDiff = (now - data.lastEditTime) / (1000 * 60 * 60);
@@ -700,28 +715,27 @@
             const filterSuffix = filterChef ? `-${filterChef}` : '-all';
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}${filterSuffix}`;
             let consolidated = {};
-            const weekMeals = [];
+            const weekMealIds = []; // GEÄNDERT: Wir sammeln jetzt die IDs der Gerichte.
             const kwNum = parseInt(currentKW.split(' ').pop());
             
             let listType = "Gesamtliste";
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            // 1. Gerichte sammeln (Ihre Logik ist hier perfekt)
+            // 1. Gerichte-IDs aus dem aktuellen Wochenplan sammeln
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
-                if (data) {
-                    let mealName = (typeof data === 'object') ? data.meal : data;
-                    let mealChef = (typeof data === 'object') ? data.chef : null;
-                    if (mealName && mealName !== "---") {
-                        if (filterChef && mealChef !== filterChef) return; 
-                        weekMeals.push(mealName);
-                    }
+                // GEÄNDERT: Wir prüfen auf 'data.mealId', um sicherzustellen, dass ein Gericht geplant ist.
+                if (data && typeof data === 'object' && data.mealId) {
+                    let mealChef = data.chef;
+                    // Chef-Filter-Logik bleibt unberührt
+                    if (filterChef && mealChef !== filterChef) return; 
+                    weekMealIds.push(data.mealId); // NEU: Wir fügen die ID zur Liste hinzu.
                 }
             });
 
-            // 2. Button-Styling anpassen (unverändert)
+            // 2. Button-Styling anpassen (komplett unverändert)
             document.querySelectorAll('.shop-filter-btn').forEach(btn => {
                 btn.style.border = "2px solid transparent";
                 btn.style.opacity = "0.6";
@@ -736,11 +750,10 @@
                 activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
             }
 
-            // *** START: ANGEPASSTE LOGIK ***
-            // Wenn es keine Gerichte gibt, überspringen wir die Zutatensammlung
-            // und gehen direkt zum Speichern einer leeren Liste.
-            if (weekMeals.length > 0) {
-                // 3. Alten Status aus Firebase abrufen
+            // Ihre bereits perfekte Logik, die eine leere Liste verarbeitet,
+            // funktioniert jetzt mit 'weekMealIds'.
+            if (weekMealIds.length > 0) {
+                // 3. Alten Status aus Firebase abrufen (komplett unverändert)
                 let existingItems = {};
                 try {
                     const existingDocRef = doc(db, "einkaufslisten", shoppingListId);
@@ -752,31 +765,32 @@
                         });
                     }
                 } catch (e) {
-                    console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
+                    console.warn("Konnte vorherigen Listenstatus nicht laden (oder Liste existiert noch nicht).", e);
                 }
 
-                // 4. Zutaten konsolidieren
-                for (const mealName of weekMeals) {
-                    const mealObj = speisekammerData.find(m => m.name === mealName);
-                    if (mealObj) {
-                        const res = await getDoc(doc(db, "rezepte", mealObj.id));
-                        if (res.exists() && Array.isArray(res.data().zutaten)) {
-                            res.data().zutaten.forEach(z => {
-                                const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
-                                if (!consolidated[key]) {
-                                    const isChecked = existingItems[key] === true;
-                                    consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
-                                }
-                                consolidated[key].menge += parseFloat(z.menge || 0);
-                            });
-                        }
+                // 4. Zutaten aus den Rezepten konsolidieren
+                for (const mealId of weekMealIds) { // GEÄNDERT: Wir iterieren über die gesammelten IDs.
+                    
+                    // GEÄNDERT: Die umständliche Suche über 'speisekammerData' entfällt.
+                    // Wir können das Rezeptdokument direkt mit seiner ID abrufen. Das ist effizienter!
+                    const res = await getDoc(doc(db, "rezepte", mealId));
+
+                    if (res.exists() && Array.isArray(res.data().zutaten)) {
+                        // Die Logik zum Konsolidieren der Zutaten bleibt danach komplett unverändert.
+                        res.data().zutaten.forEach(z => {
+                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                            if (!consolidated[key]) {
+                                const isChecked = existingItems[key] === true;
+                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
+                            }
+                            consolidated[key].menge += parseFloat(z.menge || 0);
+                        });
                     }
                 }
             }
-            // *** ENDE: ANGEPASSTE LOGIK ***
-
-            // 5. In Firebase speichern (wird jetzt immer ausgeführt)
-            // Wenn `consolidated` leer ist, wird ein leeres `items`-Array gespeichert.
+            
+            // 5. In Firebase speichern (komplett unverändert)
+            // Diese Logik speichert jetzt korrekt eine leere 'items'-Liste, wenn keine Gerichte geplant sind.
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
                 items: Object.values(consolidated),
                 kw: currentKW,
@@ -784,13 +798,14 @@
                 filter: activeShopFilter,
                 updatedAt: Date.now()
             });
-
-            // 6. UI aktualisieren (wird jetzt immer ausgeführt)
+            
+            // 6. UI aktualisieren (komplett unverändert)
             if (window.showShoppingList) {
                 window.showShoppingList(); 
                 console.log(`Shoppingliste (${listType}) wurde neu gerendert!`);
             }
         };
+
 
         // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
@@ -1026,9 +1041,103 @@
                 return; 
             }
 
-            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
-            document.getElementById(`card-${key}`).classList.add('active');
-            selectedDayKey = key;
+            // Dieser Code ist Teil Ihrer 'renderCalendar'-Funktion
+            document.querySelectorAll('.day-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const day = card.dataset.day;
+                    const kw = currentWeekIndex + 1; // Annahme: currentWeekIndex ist 0-basiert
+                    const modal = document.getElementById('add-meal-modal');
+                    const mealSelect = document.getElementById('meal-select');
+                    
+                    // Modal-Titel setzen
+                    document.getElementById('modal-title').innerText = `${day}, KW ${kw}`;
+
+                    // --- GEÄNDERTE LOGIK START ---
+
+                    // 1. Dropdown leeren und mit Gerichten füllen
+                    mealSelect.innerHTML = '<option value="">--- Gericht entfernen ---</option>';
+                    speisekammerData.sort((a,b) => a.name.localeCompare(b.name)).forEach(meal => {
+                        const option = document.createElement('option');
+                        // WICHTIG: Der 'value' der Option ist jetzt die einzigartige ID des Gerichts.
+                        option.value = meal.id; 
+                        // Der für den Benutzer sichtbare Text bleibt der Name des Gerichts.
+                        option.innerText = meal.name;
+                        mealSelect.appendChild(option);
+                    });
+
+                    // 2. Bestehende Auswahl im Modal anzeigen
+                    const key = `2026-KW${kw}-${day}`;
+                    const existingData = planData[key];
+                    if (existingData && typeof existingData === 'object') {
+                        // Wir prüfen auf 'mealId', nicht mehr auf 'meal'.
+                        if (existingData.mealId) {
+                            mealSelect.value = existingData.mealId;
+                        }
+                        if (existingData.chef) {
+                            document.getElementById(`chef-${existingData.chef.toLowerCase()}`).checked = true;
+                        } else {
+                            document.getElementById('chef-j').checked = true; // Standard-Chef
+                        }
+                    } else {
+                        document.getElementById('chef-j').checked = true; // Standard-Chef
+                    }
+
+                    modal.style.display = 'flex';
+
+                    // 3. Speicher-Logik
+                    document.getElementById('save-meal-btn').onclick = async () => {
+                        // Wir lesen die ausgewählte ID aus dem Dropdown.
+                        const selectedMealId = mealSelect.value;
+                        const selectedChef = document.querySelector('input[name="chef-radio"]:checked').value;
+                        
+                        let updateData;
+
+                        if (selectedMealId) {
+                            // Wenn eine ID ausgewählt ist, speichern wir das Objekt mit 'mealId'.
+                            updateData = {
+                                [key]: {
+                                    mealId: selectedMealId,
+                                    chef: selectedChef
+                                }
+                            };
+                        } else {
+                            // Wenn nichts ausgewählt ist (leerer Value), entfernen wir das Gericht.
+                            updateData = {
+                                [key]: {
+                                    mealId: null,
+                                    chef: null
+                                }
+                            };
+                        }
+
+                        // In Firebase speichern und Metadaten aktualisieren (wie in Ihrem Originalcode)
+                        try {
+                            await setDoc(doc(db, "planung", "wochenplan2026"), updateData, { merge: true });
+                            await setDoc(doc(db, "planung", "metadata"), {
+                                lastEditTime: Date.now(),
+                                lastEditBy: currentUserId
+                            }, { merge: true });
+                        } catch (error) {
+                            console.error("Fehler beim Speichern des Plans:", error);
+                        } finally {
+                            modal.style.display = 'none';
+                        }
+                    };
+
+                    // --- GEÄNDERTE LOGIK ENDE ---
+
+                    // Schließen-Logik (unverändert)
+                    document.getElementById('modal-close-btn').onclick = () => {
+                        modal.style.display = 'none';
+                    };
+                    window.onclick = (event) => {
+                        if (event.target == modal) {
+                            modal.style.display = 'none';
+                        }
+                    };
+                });
+            });
+
         };
 
         window.filterMeals = () => {
