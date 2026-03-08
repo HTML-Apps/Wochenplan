@@ -698,11 +698,9 @@
             activeShopFilter = filterChef || 'all';
             
             const currentKW = kwLabels[currentWeekIndex];
-            // NEU: Die ID ist jetzt spezifisch für den Filter (all, J oder H)
             const filterSuffix = filterChef ? `-${filterChef}` : '-all';
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}${filterSuffix}`;
             let consolidated = {};
-
             const weekMeals = [];
             const kwNum = parseInt(currentKW.split(' ').pop());
             
@@ -710,14 +708,13 @@
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            // 1. Gerichte sammeln
+            // 1. Gerichte sammeln (Ihre Logik ist hier perfekt)
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
                 if (data) {
                     let mealName = (typeof data === 'object') ? data.meal : data;
                     let mealChef = (typeof data === 'object') ? data.chef : null;
-
                     if (mealName && mealName !== "---") {
                         if (filterChef && mealChef !== filterChef) return; 
                         weekMeals.push(mealName);
@@ -725,12 +722,12 @@
                 }
             });
 
-            // 2. Button-Styling anpassen
+            // 2. Button-Styling anpassen (unverändert)
             document.querySelectorAll('.shop-filter-btn').forEach(btn => {
                 btn.style.border = "2px solid transparent";
                 btn.style.opacity = "0.6";
                 btn.style.transform = "scale(0.95)";
-                btn.style.boxShadow = "none"; // Sicherstellen, dass alter Schatten weg ist
+                btn.style.boxShadow = "none";
             });
             const activeBtn = document.getElementById(`btn-shop-${activeShopFilter}`);
             if(activeBtn) {
@@ -740,61 +737,62 @@
                 activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
             }
 
-            if (weekMeals.length === 0) {
-                alert(`Keine Gerichte für ${listType} gefunden!`);
-                return;
-            }
-
-            // 3. Alten Status aus Firebase abrufen, um abgehakte Items zu erhalten
-            let existingItems = {};
-            try {
-                const existingDocRef = doc(db, "einkaufslisten", shoppingListId);
-                const existingDocSnap = await getDoc(existingDocRef);
-                if (existingDocSnap.exists() && Array.isArray(existingDocSnap.data().items)) {
-                    existingDocSnap.data().items.forEach(item => {
-                        // Wir nutzen denselben Key-Aufbau wie unten, um sie wiederzufinden
-                        const key = `${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`;
-                        existingItems[key] = item.checked;
-                    });
-                }
-            } catch (e) {
-                console.warn("Konnte vorherigen Listenstatus nicht laden (oder Liste existiert noch nicht).", e);
-            }
-
-            // 4. Zutaten aus den Rezepten konsolidieren
-            for (const mealName of weekMeals) {
-                const mealObj = speisekammerData.find(m => m.name === mealName);
-                if (mealObj) {
-                    const res = await getDoc(doc(db, "rezepte", mealObj.id));
-                    if (res.exists() && Array.isArray(res.data().zutaten)) {
-                        res.data().zutaten.forEach(z => {
-                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
-                            if (!consolidated[key]) {
-                                // NEU: Wir prüfen, ob das Item im alten Status schon checked war
-                                const isChecked = existingItems[key] === true;
-                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
-                            }
-                            consolidated[key].menge += parseFloat(z.menge || 0);
+            // *** START: ANGEPASSTE LOGIK ***
+            // Wenn es keine Gerichte gibt, überspringen wir die Zutatensammlung
+            // und gehen direkt zum Speichern einer leeren Liste.
+            if (weekMeals.length > 0) {
+                // 3. Alten Status aus Firebase abrufen
+                let existingItems = {};
+                try {
+                    const existingDocRef = doc(db, "einkaufslisten", shoppingListId);
+                    const existingDocSnap = await getDoc(existingDocRef);
+                    if (existingDocSnap.exists() && Array.isArray(existingDocSnap.data().items)) {
+                        existingDocSnap.data().items.forEach(item => {
+                            const key = `${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`;
+                            existingItems[key] = item.checked;
                         });
+                    }
+                } catch (e) {
+                    console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
+                }
+
+                // 4. Zutaten konsolidieren
+                for (const mealName of weekMeals) {
+                    const mealObj = speisekammerData.find(m => m.name === mealName);
+                    if (mealObj) {
+                        const res = await getDoc(doc(db, "rezepte", mealObj.id));
+                        if (res.exists() && Array.isArray(res.data().zutaten)) {
+                            res.data().zutaten.forEach(z => {
+                                const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                                if (!consolidated[key]) {
+                                    const isChecked = existingItems[key] === true;
+                                    consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
+                                }
+                                consolidated[key].menge += parseFloat(z.menge || 0);
+                            });
+                        }
                     }
                 }
             }
+            // *** ENDE: ANGEPASSTE LOGIK ***
 
-            // 5. In Firebase speichern (jetzt mit der filter-spezifischen ID)
+            // 5. In Firebase speichern (wird jetzt immer ausgeführt)
+            // Wenn `consolidated` leer ist, wird ein leeres `items`-Array gespeichert.
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
                 items: Object.values(consolidated),
                 kw: currentKW,
                 type: listType,
-                filter: activeShopFilter, // Hilfreich für spätere Abfragen
+                filter: activeShopFilter,
                 updatedAt: Date.now()
             });
 
-            // 6. UI aktualisieren
+            // 6. UI aktualisieren (wird jetzt immer ausgeführt)
             if (window.showShoppingList) {
                 window.showShoppingList(); 
                 console.log(`Shoppingliste (${listType}) wurde neu gerendert!`);
             }
         };
+
 
         // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
@@ -888,7 +886,6 @@
             }
         };
 
-
         // --- VERBESSERTE LÖSCHFUNKTION ---
         // Diese Version ist robuster und vermeidet Probleme mit dem confirm-Dialog.
 
@@ -922,9 +919,6 @@
                 }
             }
         };
-
-
-
 
         let listUnsubscribe = null;
 
