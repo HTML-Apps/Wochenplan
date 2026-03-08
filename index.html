@@ -1055,103 +1055,101 @@
         };
 
         window.selectDay = (key) => {
+            // WEICHE: Was soll bei einem Klick passieren?
+
+            // FALL 1: WIR SIND NICHT IM EDIT-MODUS
+            // -> Rezept-Popup öffnen, falls ein Gericht vorhanden ist.
             if (!isEditMode) {
                 const currentData = planData[key];
-                let mealName = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
+                
+                // Wir müssen hier die neue mealId-Struktur verwenden
+                if (currentData && typeof currentData === 'object' && currentData.mealId) {
+                    const mealId = currentData.mealId;
+                    const mealObj = speisekammerData.find(m => m.id === mealId); // Suche mit ID
 
-                if (mealName && mealName !== "---") {
-                    const mealObj = speisekammerData.find(m => m.name === mealName);
                     if (mealObj) {
-                        window.openRecipePopup(mealObj.id, mealName);
+                        // Öffne das Popup mit der korrekten ID und dem Namen
+                        window.openRecipePopup(mealObj.id, mealObj.name);
                     } else {
                         alert("Rezept nicht in der Datenbank gefunden.");
                     }
                 }
-                return; 
+                return; // Funktion hier beenden.
             }
 
-            // Dieser Code ist Teil Ihrer 'renderCalendar'-Funktion
+            // FALL 2: WIR SIND IM EDIT-MODUS
+            // -> Modal zum Bearbeiten direkt öffnen.
+            
+            const parts = key.split('-');
+            const day = parts[2];
+            const kw = parseInt(parts[1].replace('KW', ''));
+            
+            const modal = document.getElementById('add-meal-modal');
+            const mealSelect = document.getElementById('meal-select');
+            const chefRadios = modal.querySelectorAll('input[name="chef-radio"]');
 
-            document.querySelectorAll('.day-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const day = card.dataset.day;
-                    const kw = currentWeekIndex + 1;
-                    const modal = document.getElementById('add-meal-modal');
-                    const mealSelect = document.getElementById('meal-select');
-                    const chefRadios = modal.querySelectorAll('input[name="chef-radio"]'); // Lese Radios innerhalb des Modals
+            // Modal-Titel setzen
+            document.getElementById('modal-title').innerText = `${day}, KW ${kw}`;
 
-                    // Modal-Titel setzen
-                    document.getElementById('modal-title').innerText = `${day}, KW ${kw}`;
-
-                    // 1. Dropdown leeren und neu füllen (Ihre Logik hier ist bereits korrekt)
-                    mealSelect.innerHTML = '<option value="">--- Gericht entfernen ---</option>';
-                    speisekammerData.sort((a,b) => a.name.localeCompare(b.name)).forEach(meal => {
-                        const option = document.createElement('option');
-                        option.value = meal.id;
-                        option.innerText = meal.name;
-                        mealSelect.appendChild(option);
-                    });
-
-                    // 2. Bestehende Auswahl im Modal anzeigen (Ihre Logik hier ist bereits korrekt)
-                    const key = `2026-KW${kw}-${day}`;
-                    const existingData = planData[key];
-                    if (existingData && typeof existingData === 'object') {
-                        if (existingData.mealId) {
-                            mealSelect.value = existingData.mealId;
-                        }
-                        if (existingData.chef) {
-                            document.getElementById(`chef-${existingData.chef.toLowerCase()}`).checked = true;
-                        } else {
-                            document.getElementById('chef-j').checked = true;
-                        }
-                    } else {
-                        document.getElementById('chef-j').checked = true;
-                    }
-
-                    modal.style.display = 'flex';
-
-                    // 3. Speicher-Logik - JETZT KORRIGIERT
-                    document.getElementById('save-meal-btn').onclick = async () => {
-                        // --- GEÄNDERTE LOGIK ---
-                        // Wir lesen die Werte direkt und zuverlässig zum Zeitpunkt des Klicks.
-                        const selectedMealId = mealSelect.value;
-                        let selectedChef = null;
-                        chefRadios.forEach(radio => {
-                            if (radio.checked) {
-                                selectedChef = radio.value;
-                            }
-                        });
-                        // --- GEÄNDERTE LOGIK ENDE ---
-                        
-                        let updateData;
-
-                        if (selectedMealId) {
-                            updateData = { [key]: { mealId: selectedMealId, chef: selectedChef } };
-                        } else {
-                            updateData = { [key]: { mealId: null, chef: null } };
-                        }
-
-                        try {
-                            await setDoc(doc(db, "planung", "wochenplan2026"), updateData, { merge: true });
-                            await setDoc(doc(db, "planung", "metadata"), {
-                                lastEditTime: Date.now(),
-                                lastEditBy: currentUserId
-                            }, { merge: true });
-                        } catch (error) {
-                            console.error("Fehler beim Speichern des Plans:", error);
-                        } finally {
-                            modal.style.display = 'none';
-                        }
-                    };
-
-                    // Schließen-Logik (unverändert)
-                    document.getElementById('modal-close-btn').onclick = () => { modal.style.display = 'none'; };
-                    window.onclick = (event) => { if (event.target == modal) { modal.style.display = 'none'; } };
-                });
+            // 1. Dropdown leeren und neu füllen
+            mealSelect.innerHTML = '<option value="">--- Gericht entfernen ---</option>';
+            speisekammerData.sort((a,b) => a.name.localeCompare(b.name)).forEach(meal => {
+                const option = document.createElement('option');
+                option.value = meal.id;
+                option.innerText = meal.name;
+                mealSelect.appendChild(option);
             });
 
+            // 2. Bestehende Auswahl im Modal anzeigen
+            const existingData = planData[key];
+            if (existingData && typeof existingData === 'object') {
+                if (existingData.mealId) {
+                    mealSelect.value = existingData.mealId;
+                }
+                if (existingData.chef) {
+                    document.getElementById(`chef-${existingData.chef.toLowerCase()}`).checked = true;
+                } else {
+                    document.getElementById('chef-j').checked = true;
+                }
+            } else {
+                document.getElementById('chef-j').checked = true;
+            }
 
+            // Modal anzeigen
+            modal.style.display = 'flex';
+
+            // 3. Speicher-Logik
+            document.getElementById('save-meal-btn').onclick = async () => {
+                const selectedMealId = mealSelect.value;
+                let selectedChef = null;
+                chefRadios.forEach(radio => {
+                    if (radio.checked) {
+                        selectedChef = radio.value;
+                    }
+                });
+                
+                const updateData = selectedMealId ? 
+                    { [key]: { mealId: selectedMealId, chef: selectedChef } } :
+                    { [key]: { mealId: null, chef: null } };
+
+                try {
+                    await setDoc(doc(db, "planung", "wochenplan2026"), updateData, { merge: true });
+                    await setDoc(doc(db, "planung", "metadata"), {
+                        lastEditTime: Date.now(),
+                        lastEditBy: currentUserId
+                    }, { merge: true });
+                } catch (error) {
+                    console.error("Fehler beim Speichern des Plans:", error);
+                } finally {
+                    modal.style.display = 'none';
+                }
+            };
+
+            // 4. Schließen-Logik
+            document.getElementById('modal-close-btn').onclick = () => { modal.style.display = 'none'; };
+            window.onclick = (event) => { if (event.target == modal) { modal.style.display = 'none'; } };
         };
+
 
         window.filterMeals = () => {
             const searchTerm = document.getElementById('mealSearch').value.toLowerCase();
