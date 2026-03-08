@@ -175,17 +175,8 @@
             isEditMode = document.getElementById('editToggle').checked;
             document.body.classList.toggle('edit-mode', isEditMode);
             if(!isEditMode) {
-                document.querySelectorAll('.day-card').forEach(card => {
-                    card.addEventListener('click', () => {
-                        // Wir holen den Key direkt aus der ID der angeklickten Karte.
-                        // Die ID ist z.B. 'card-2026-KW10-Montag'
-                        const key = card.id.replace('card-', ''); 
-                        
-                        // Wir rufen IMMER die zentrale 'selectDay'-Funktion auf,
-                        // die dann entscheidet, was zu tun ist (Popup oder Modal öffnen).
-                        selectDay(key);
-                    });
-                });
+                document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+                selectedDayKey = null;
             }
         };
 
@@ -209,94 +200,79 @@
         }
 
         function setupRealtimeSync() {
-            let planDataLoaded = false;
-            let speisekammerDataLoaded = false;
-
-            // Diese Funktion wird aufgerufen, sobald BEIDE Datensätze geladen sind.
-            function processAndRenderUI() {
-                // Wir führen die Funktion nur aus, wenn beide Flags auf true stehen.
-                if (!planDataLoaded || !speisekammerDataLoaded) {
-                    return;
-                }
-
-                console.log("Beide Datenquellen sind geladen. UI wird vollständig neu gerendert.");
-                
-                // --- GEÄNDERTE LOGIK START ---
-                // Die Aufrufe für die Historie und die Speisekammer-Anzeige
-                // werden jetzt HIER ausgeführt, im sicheren Bereich.
-                const counts = calculateCounts();
-                renderStorage(counts);
-                // --- GEÄNDERTE LOGIK ENDE ---
-                
-                // UI im Kalender aktualisieren
-                Object.keys(planData).forEach(key => {
-                    const data = planData[key];
-                    let mealName = "---";
-                    let chef = null;
-
-                    if (data && typeof data === 'object' && data.mealId) {
-                        const mealObj = speisekammerData.find(m => m.id === data.mealId);
-                        
-                        if (mealObj) {
-                            mealName = mealObj.name;
-                        } else {
-                            mealName = "Unbekannt";
-                        }
-                        chef = data.chef;
-                    }
-                    
-                    const el = document.getElementById(`text-${key}`);
-                    const card = document.getElementById(`card-${key}`);
-                    if (el) el.innerText = mealName;
-                    if (card) {
-                        card.classList.remove('chef-j', 'chef-h');
-                        if (chef === 'J') card.classList.add('chef-j');
-                        if (chef === 'H') card.classList.add('chef-h');
-                    }
-                });
-                
-                // Die Einkaufsliste wird ebenfalls hier, im sicheren Bereich, generiert.
-                if (window.generateShoppingList) {
-                    const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
-                    window.generateShoppingList(filterArg);
-                }
-            }
-
-            // Listener für den Wochenplan
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
-                    planDataLoaded = true;
-                    processAndRenderUI();
+                    const counts = calculateCounts();
+                    
+                    // UI im Kalender aktualisieren
+                    Object.keys(planData).forEach(key => {
+                        const data = planData[key];
+                        let mealName = "---";
+                        let chef = null;
+
+                        if (data) {
+                            if (typeof data === 'object') {
+                                mealName = data.meal || "---";
+                                chef = data.chef;
+                            } else {
+                                mealName = data;
+                            }
+                        }
+                        
+                        const el = document.getElementById(`text-${key}`);
+                        const card = document.getElementById(`card-${key}`);
+                        if (el) el.innerText = mealName;
+                        if (card) {
+                            card.classList.remove('chef-j', 'chef-h');
+                            if (chef === 'J') card.classList.add('chef-j');
+                            if (chef === 'H') card.classList.add('chef-h');
+                        }
+                    });
+                    
+                    renderStorage(counts);
+
+                    // *** NEUE LOGIK START ***
+                    // Diese Zeile sorgt dafür, dass die aktuell ausgewählte Einkaufsliste
+                    // (sei es "Alle", "Julia" oder "Hendrik") bei jeder Planänderung
+                    // automatisch neu generiert wird.
+                    if (window.generateShoppingList) {
+                        // Die Funktion `generateShoppingList` erwartet `null` für die "Alle"-Liste.
+                        // Die Variable `activeShopFilter` speichert diesen Zustand jedoch als den String 'all'.
+                        // Daher wandeln wir 'all' hier in `null` um, bevor wir die Funktion aufrufen.
+                        const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
+                        window.generateShoppingList(filterArg);
+                    }
+                    // *** NEUE LOGIK ENDE ***
                 }
             });
 
-            // Listener für 'speisekammer'
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
                 speisekammerData = [];
                 snapshot.forEach((doc) => {
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
-                speisekammerDataLoaded = true;
-                processAndRenderUI();
+                renderStorage(calculateCounts());
             });
 
-            // Der Listener für 'metadata' ist unabhängig und bleibt unverändert.
+            // --- Der angepasste Listener ---
             onSnapshot(doc(db, "planung", "metadata"), (ds) => {
                 if (ds.exists()) {
                     const data = ds.data();
                     if (data.lastEditTime && data.lastEditBy) {
-                        lastKnownEditTime = data.lastEditTime;
+                        lastKnownEditTime = data.lastEditTime; // Global speichern für toggle-Funktion
                         
                         const name = USER_MAP[data.lastEditBy] || "Jemand";
                         const editDate = new Date(data.lastEditTime);
                         
+                        // Formatierung
                         const dayNames = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
                         const dayStr = dayNames[editDate.getDay()];
                         const timeStr = editDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
                         document.getElementById('lastEditPopup').innerText = `zuletzt bearbeitet von: ${name} (${dayStr}. ${timeStr} Uhr)`;
 
+                        // LOGIK FÜR DEN PUNKT:
                         const lastRead = localStorage.getItem('lastReadEdit') || 0;
                         const now = Date.now();
                         const hoursDiff = (now - data.lastEditTime) / (1000 * 60 * 60);
@@ -313,22 +289,12 @@
 
         function calculateCounts() {
             const counts = {};
-
-            speisekammerData.forEach(meal => {
-                counts[meal.id] = 0; 
-            });
-
-            for (const key in planData) {
-                const data = planData[key];
-                if (data && typeof data === 'object' && data.mealId) {
-                    const mealId = data.mealId;
-                    if (counts.hasOwnProperty(mealId)) {
-                        counts[mealId]++;
-                    }
+            Object.values(planData).forEach(val => {
+                const name = (val && typeof val === 'object') ? val.meal : val;
+                if (name && name !== "---") {
+                    counts[name] = (counts[name] || 0) + 1;
                 }
-            }
-            
-            // WICHTIG: Gibt jetzt direkt das Dictionary zurück!
+            });
             return counts;
         }
 
@@ -381,10 +347,9 @@
 
             Object.keys(planData).forEach(key => {
                 const data = planData[key];
-                
-                // WICHTIG: Hier prüfen wir jetzt korrekt auf mealId!
-                if (data && typeof data === 'object' && data.mealId) {
-                    const mealId = data.mealId;
+                let mealName = (data && typeof data === 'object') ? data.meal : data;
+
+                if (mealName && mealName !== "---") {
                     const parts = key.split('-');
                     if (parts.length === 3) {
                         const kwNum = parseInt(parts[1].replace('KW', ''));
@@ -396,32 +361,31 @@
 
                         if (planDay <= now) {
                             const ts = planDay.getTime();
-                            // Zeitstempel wird unter der ID gespeichert
-                            if (!lastCookedTimestamp[mealId] || ts > lastCookedTimestamp[mealId]) {
-                                lastCookedTimestamp[mealId] = ts;
+                            if (!lastCookedTimestamp[mealName] || ts > lastCookedTimestamp[mealName]) {
+                                lastCookedTimestamp[mealName] = ts;
                             }
                         }
                     }
                 }
             });
 
-            // Zähler anhand der ID auslesen
-            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.id] || 0);
+            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
             const minCount = countValues.length > 0 ? Math.min(...countValues) : 0;
             const maxCount = countValues.length > 0 ? Math.max(...countValues) : 0;
 
             storageEl.innerHTML = "";
+            
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
-                const count = counts[item.id] || 0; // Hier ID statt Name!
+                const count = counts[item.name] || 0;
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
                 let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
                 let timeLabel = "";
-                if (lastCookedTimestamp[item.id]) { // Hier ID statt Name!
-                    const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.id]) / (1000 * 60 * 60 * 24));
+                if (lastCookedTimestamp[item.name]) {
+                    const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
                     if (diffDays === 0) {
                         timeLabel = "heute";
                     } else if (diffDays < 7) {
@@ -500,31 +464,29 @@
 
         window.handleMealClick = async (mealId, mealName) => {
             if (isEditMode) {
-                window.assignMeal(mealId, mealName); // WICHTIG: mealId wird jetzt mitgegeben
+                window.assignMeal(mealName);
             } else {
                 window.openRecipePopup(mealId, mealName);
             }
         };
 
-        window.assignMeal = async (mealId, mealName) => {
+        window.assignMeal = async (mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
-            const currentData = planData[selectedDayKey] || {};
-            
-            // Sicherstellen, dass undefined zu null wird
-            const currentChef = (currentData && currentData.chef) ? currentData.chef : null;
+            const currentData = planData[selectedDayKey];
+            let currentChef = null;
+            if (currentData && typeof currentData === 'object') {
+                currentChef = currentData.chef;
+            }
 
-            // WICHTIG: mealId wird gespeichert. Auch hier sichern wir uns gegen undefined ab.
             const updatedEntry = { 
-                mealId: mealId || null, 
-                chef: currentChef
+                meal: mealName, 
+                chef: currentChef || null 
             };
             
-            await setDoc(doc(db, "planung", "wochenplan2026"), {
-                [selectedDayKey]: updatedEntry
-            }, { merge: true });
-                
-            await window.trackEdit();
+            planData[selectedDayKey] = updatedEntry;
+            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+            await window.trackEdit(); 
 
             const parts = selectedDayKey.split('-');
             const kwNum = parseInt(parts[1].replace('KW', ''));
@@ -538,7 +500,6 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Das Archiv braucht weiterhin den Namen
             if (planDay <= today && mealName !== "---") {
                 await updateArchiveAutomatically(mealName, planDay, parts[1]);
             }
@@ -739,27 +700,28 @@
             const filterSuffix = filterChef ? `-${filterChef}` : '-all';
             const shoppingListId = `list-2026-${currentKW.replace(' ', '')}${filterSuffix}`;
             let consolidated = {};
-            const weekMealIds = []; // GEÄNDERT: Wir sammeln jetzt die IDs der Gerichte.
+            const weekMeals = [];
             const kwNum = parseInt(currentKW.split(' ').pop());
             
             let listType = "Gesamtliste";
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            // 1. Gerichte-IDs aus dem aktuellen Wochenplan sammeln
+            // 1. Gerichte sammeln (Ihre Logik ist hier perfekt)
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
-                // GEÄNDERT: Wir prüfen auf 'data.mealId', um sicherzustellen, dass ein Gericht geplant ist.
-                if (data && typeof data === 'object' && data.mealId) {
-                    let mealChef = data.chef;
-                    // Chef-Filter-Logik bleibt unberührt
-                    if (filterChef && mealChef !== filterChef) return; 
-                    weekMealIds.push(data.mealId); // NEU: Wir fügen die ID zur Liste hinzu.
+                if (data) {
+                    let mealName = (typeof data === 'object') ? data.meal : data;
+                    let mealChef = (typeof data === 'object') ? data.chef : null;
+                    if (mealName && mealName !== "---") {
+                        if (filterChef && mealChef !== filterChef) return; 
+                        weekMeals.push(mealName);
+                    }
                 }
             });
 
-            // 2. Button-Styling anpassen (komplett unverändert)
+            // 2. Button-Styling anpassen (unverändert)
             document.querySelectorAll('.shop-filter-btn').forEach(btn => {
                 btn.style.border = "2px solid transparent";
                 btn.style.opacity = "0.6";
@@ -774,10 +736,11 @@
                 activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
             }
 
-            // Ihre bereits perfekte Logik, die eine leere Liste verarbeitet,
-            // funktioniert jetzt mit 'weekMealIds'.
-            if (weekMealIds.length > 0) {
-                // 3. Alten Status aus Firebase abrufen (komplett unverändert)
+            // *** START: ANGEPASSTE LOGIK ***
+            // Wenn es keine Gerichte gibt, überspringen wir die Zutatensammlung
+            // und gehen direkt zum Speichern einer leeren Liste.
+            if (weekMeals.length > 0) {
+                // 3. Alten Status aus Firebase abrufen
                 let existingItems = {};
                 try {
                     const existingDocRef = doc(db, "einkaufslisten", shoppingListId);
@@ -789,32 +752,31 @@
                         });
                     }
                 } catch (e) {
-                    console.warn("Konnte vorherigen Listenstatus nicht laden (oder Liste existiert noch nicht).", e);
+                    console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
                 }
 
-                // 4. Zutaten aus den Rezepten konsolidieren
-                for (const mealId of weekMealIds) { // GEÄNDERT: Wir iterieren über die gesammelten IDs.
-                    
-                    // GEÄNDERT: Die umständliche Suche über 'speisekammerData' entfällt.
-                    // Wir können das Rezeptdokument direkt mit seiner ID abrufen. Das ist effizienter!
-                    const res = await getDoc(doc(db, "rezepte", mealId));
-
-                    if (res.exists() && Array.isArray(res.data().zutaten)) {
-                        // Die Logik zum Konsolidieren der Zutaten bleibt danach komplett unverändert.
-                        res.data().zutaten.forEach(z => {
-                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
-                            if (!consolidated[key]) {
-                                const isChecked = existingItems[key] === true;
-                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
-                            }
-                            consolidated[key].menge += parseFloat(z.menge || 0);
-                        });
+                // 4. Zutaten konsolidieren
+                for (const mealName of weekMeals) {
+                    const mealObj = speisekammerData.find(m => m.name === mealName);
+                    if (mealObj) {
+                        const res = await getDoc(doc(db, "rezepte", mealObj.id));
+                        if (res.exists() && Array.isArray(res.data().zutaten)) {
+                            res.data().zutaten.forEach(z => {
+                                const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                                if (!consolidated[key]) {
+                                    const isChecked = existingItems[key] === true;
+                                    consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
+                                }
+                                consolidated[key].menge += parseFloat(z.menge || 0);
+                            });
+                        }
                     }
                 }
             }
-            
-            // 5. In Firebase speichern (komplett unverändert)
-            // Diese Logik speichert jetzt korrekt eine leere 'items'-Liste, wenn keine Gerichte geplant sind.
+            // *** ENDE: ANGEPASSTE LOGIK ***
+
+            // 5. In Firebase speichern (wird jetzt immer ausgeführt)
+            // Wenn `consolidated` leer ist, wird ein leeres `items`-Array gespeichert.
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
                 items: Object.values(consolidated),
                 kw: currentKW,
@@ -822,14 +784,13 @@
                 filter: activeShopFilter,
                 updatedAt: Date.now()
             });
-            
-            // 6. UI aktualisieren (komplett unverändert)
+
+            // 6. UI aktualisieren (wird jetzt immer ausgeführt)
             if (window.showShoppingList) {
                 window.showShoppingList(); 
                 console.log(`Shoppingliste (${listType}) wurde neu gerendert!`);
             }
         };
-
 
         // --- VERBRAUCHSSTOFFE LOGIK (Korrigiert & Optimiert) ---
 
@@ -1041,32 +1002,23 @@
         window.setChef = async (key, chefLetter, event) => {
             event.stopPropagation();
             if (!isEditMode) return;
-            
             const currentData = planData[key] || {};
-            
-            // WICHTIG: undefined sicher abfangen und in null umwandeln
-            const currentMealId = (currentData && currentData.mealId) ? currentData.mealId : null;
-            const newChef = (currentData && currentData.chef === chefLetter) ? null : chefLetter;
-            
-            // Anstatt das riesige planData-Objekt zurückzuschreiben, updaten wir nur den spezifischen Tag.
-            // Das ist viel sicherer und verhindert, dass Fehler von anderen Tagen mitgeschleppt werden.
-            await setDoc(doc(db, "planung", "wochenplan2026"), {
-                [key]: { mealId: currentMealId, chef: newChef }
-            }, { merge: true });
-            
+            const currentMeal = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
+            const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
+            planData[key] = { meal: currentMeal || "---", chef: newChef };
+            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
             await window.trackEdit(); 
         };
 
         window.selectDay = (key) => {
-            // FALL 1: WIR SIND NICHT IM EDIT-MODUS -> Rezept öffnen
             if (!isEditMode) {
                 const currentData = planData[key];
-                if (currentData && typeof currentData === 'object' && currentData.mealId) {
-                    const mealId = currentData.mealId;
-                    const mealObj = speisekammerData.find(m => m.id === mealId); 
+                let mealName = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
 
+                if (mealName && mealName !== "---") {
+                    const mealObj = speisekammerData.find(m => m.name === mealName);
                     if (mealObj) {
-                        window.openRecipePopup(mealObj.id, mealObj.name);
+                        window.openRecipePopup(mealObj.id, mealName);
                     } else {
                         alert("Rezept nicht in der Datenbank gefunden.");
                     }
@@ -1074,7 +1026,6 @@
                 return; 
             }
 
-            // FALL 2: WIR SIND IM EDIT-MODUS -> Tag für die Auswahl markieren
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
             document.getElementById(`card-${key}`).classList.add('active');
             selectedDayKey = key;
