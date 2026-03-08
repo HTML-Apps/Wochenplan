@@ -26,8 +26,7 @@
     <link rel="apple-touch-icon" href="cook.png">
 
     <script type="module">
-        // Nur kurzzeitig zum Wiederherstellen einfügen:
-        window.restoreHelper = { doc, setDoc, db };
+
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection, query, orderBy, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -48,6 +47,9 @@
         window.db = db;
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
+
+        // Nur kurzzeitig zum Wiederherstellen einfügen:
+        window.restoreHelper = { doc, setDoc, db };
 
         // --- THEME LOGIK (DARK MODE) --- 📱'☀️' : '🌙';⚡
         window.toggleTheme = () => {
