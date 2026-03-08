@@ -237,20 +237,15 @@
                     
                     renderStorage(counts);
 
-                    // *** NEUE LOGIK START ***
-                    // Diese Zeile sorgt dafür, dass die aktuell ausgewählte Einkaufsliste
-                    // (sei es "Alle", "Julia" oder "Hendrik") bei jeder Planänderung
-                    // automatisch neu generiert wird.
+                    // *** AKTUALISIERTE LOGIK: Silent Update ***
                     if (window.generateShoppingList) {
-                        // Die Funktion `generateShoppingList` erwartet `null` für die "Alle"-Liste.
-                        // Die Variable `activeShopFilter` speichert diesen Zustand jedoch als den String 'all'.
-                        // Daher wandeln wir 'all' hier in `null` um, bevor wir die Funktion aufrufen.
                         const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
-                        window.generateShoppingList(filterArg);
+                        // Wir fügen hier 'true' hinzu -> isSilent = true
+                        window.generateShoppingList(filterArg, true);
                     }
-                    // *** NEUE LOGIK ENDE ***
                 }
             });
+        }
 
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
                 speisekammerData = [];
@@ -698,7 +693,7 @@
         // --- EINKAUFSLISTEN LOGIK ---
         let activeShopFilter = 'all'; 
 
-        window.generateShoppingList = async (filterChef = null) => {
+        window.generateShoppingList = async (filterChef = null, isSilent = false) => {
             activeShopFilter = filterChef || 'all';
             
             const currentKW = kwLabels[currentWeekIndex];
@@ -712,7 +707,7 @@
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            // 1. Gerichte sammeln (Ihre Logik ist hier perfekt)
+            // 1. Gerichte sammeln
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
@@ -726,7 +721,7 @@
                 }
             });
 
-            // 2. Button-Styling anpassen (unverändert)
+            // 2. Button-Styling anpassen
             document.querySelectorAll('.shop-filter-btn').forEach(btn => {
                 btn.style.border = "2px solid transparent";
                 btn.style.opacity = "0.6";
@@ -741,11 +736,8 @@
                 activeBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)";
             }
 
-            // *** START: ANGEPASSTE LOGIK ***
-            // Wenn es keine Gerichte gibt, überspringen wir die Zutatensammlung
-            // und gehen direkt zum Speichern einer leeren Liste.
+            // 3. Zutatensammlung
             if (weekMeals.length > 0) {
-                // 3. Alten Status aus Firebase abrufen
                 let existingItems = {};
                 try {
                     const existingDocRef = doc(db, "einkaufslisten", shoppingListId);
@@ -760,10 +752,10 @@
                     console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
                 }
 
-                // 4. Zutaten konsolidieren
                 for (const mealName of weekMeals) {
                     const mealObj = speisekammerData.find(m => m.name === mealName);
                     if (mealObj) {
+                        // Hier nutzen wir die ID aus dem mealObj (da wir wieder im Text-Modus sind)
                         const res = await getDoc(doc(db, "rezepte", mealObj.id));
                         if (res.exists() && Array.isArray(res.data().zutaten)) {
                             res.data().zutaten.forEach(z => {
@@ -778,10 +770,8 @@
                     }
                 }
             }
-            // *** ENDE: ANGEPASSTE LOGIK ***
 
-            // 5. In Firebase speichern (wird jetzt immer ausgeführt)
-            // Wenn `consolidated` leer ist, wird ein leeres `items`-Array gespeichert.
+            // 4. In Firebase speichern
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
                 items: Object.values(consolidated),
                 kw: currentKW,
@@ -790,10 +780,14 @@
                 updatedAt: Date.now()
             });
 
-            // 6. UI aktualisieren (wird jetzt immer ausgeführt)
-            if (window.showShoppingList) {
+            // 5. UI aktualisieren
+            // Wenn isSilent true ist, wird nur im Hintergrund gespeichert, 
+            // aber das Modal wird nicht getriggert.
+            if (!isSilent && window.showShoppingList) {
                 window.showShoppingList(); 
-                console.log(`Shoppingliste (${listType}) wurde neu gerendert!`);
+                console.log(`Shoppingliste (${listType}) wurde geöffnet!`);
+            } else {
+                console.log(`Shoppingliste (${listType}) im Hintergrund aktualisiert.`);
             }
         };
 
