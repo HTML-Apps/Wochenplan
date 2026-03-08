@@ -313,41 +313,24 @@
 
         function calculateCounts() {
             const counts = {};
-            const lastPlanned = {};
 
-            // 1. Initialisiere Zähler für JEDE meal.id aus der Speisekammer.
             speisekammerData.forEach(meal => {
-                counts[meal.id] = 0; // KORREKTUR: Der Schlüssel ist die ID, nicht der Name.
+                counts[meal.id] = 0; 
             });
 
-            // 2. Iteriere durch den Plan und zähle die Vorkommen jeder mealId.
             for (const key in planData) {
                 const data = planData[key];
-
-                // KORREKTUR: Wir prüfen auf 'data.mealId', nicht mehr auf 'data.meal'.
                 if (data && typeof data === 'object' && data.mealId) {
                     const mealId = data.mealId;
-
-                    // Erhöhe den Zähler für die gefundene ID.
                     if (counts.hasOwnProperty(mealId)) {
                         counts[mealId]++;
-                    }
-
-                    // Finde die letzte geplante Kalenderwoche für diese ID.
-                    const parts = key.split('-');
-                    if (parts.length === 3) {
-                        const kw = parseInt(parts[1].replace('KW', ''));
-                        if (!lastPlanned[mealId] || kw > lastPlanned[mealId]) {
-                            lastPlanned[mealId] = kw;
-                        }
                     }
                 }
             }
             
-            // Gib die korrekten Zähler zurück.
-            return { counts, lastPlanned };
+            // WICHTIG: Gibt jetzt direkt das Dictionary zurück!
+            return counts;
         }
-
 
         function getHeatStyle(count, min, max, mealName) {
             const isDarkMode = document.body.classList.contains('dark-mode');
@@ -398,9 +381,10 @@
 
             Object.keys(planData).forEach(key => {
                 const data = planData[key];
-                let mealName = (data && typeof data === 'object') ? data.meal : data;
-
-                if (mealName && mealName !== "---") {
+                
+                // WICHTIG: Hier prüfen wir jetzt korrekt auf mealId!
+                if (data && typeof data === 'object' && data.mealId) {
+                    const mealId = data.mealId;
                     const parts = key.split('-');
                     if (parts.length === 3) {
                         const kwNum = parseInt(parts[1].replace('KW', ''));
@@ -412,31 +396,32 @@
 
                         if (planDay <= now) {
                             const ts = planDay.getTime();
-                            if (!lastCookedTimestamp[mealName] || ts > lastCookedTimestamp[mealName]) {
-                                lastCookedTimestamp[mealName] = ts;
+                            // Zeitstempel wird unter der ID gespeichert
+                            if (!lastCookedTimestamp[mealId] || ts > lastCookedTimestamp[mealId]) {
+                                lastCookedTimestamp[mealId] = ts;
                             }
                         }
                     }
                 }
             });
 
-            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
+            // Zähler anhand der ID auslesen
+            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.id] || 0);
             const minCount = countValues.length > 0 ? Math.min(...countValues) : 0;
             const maxCount = countValues.length > 0 ? Math.max(...countValues) : 0;
 
             storageEl.innerHTML = "";
-            
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
-                const count = counts[item.name] || 0;
+                const count = counts[item.id] || 0; // Hier ID statt Name!
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
                 let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
                 let timeLabel = "";
-                if (lastCookedTimestamp[item.name]) {
-                    const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
+                if (lastCookedTimestamp[item.id]) { // Hier ID statt Name!
+                    const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.id]) / (1000 * 60 * 60 * 24));
                     if (diffDays === 0) {
                         timeLabel = "heute";
                     } else if (diffDays < 7) {
@@ -515,13 +500,13 @@
 
         window.handleMealClick = async (mealId, mealName) => {
             if (isEditMode) {
-                window.assignMeal(mealName);
+                window.assignMeal(mealId, mealName); // WICHTIG: mealId wird jetzt mitgegeben
             } else {
                 window.openRecipePopup(mealId, mealName);
             }
         };
 
-        window.assignMeal = async (mealName) => {
+        window.assignMeal = async (mealId, mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
             const currentData = planData[selectedDayKey];
@@ -530,8 +515,9 @@
                 currentChef = currentData.chef;
             }
 
+            // WICHTIG: mealId wird gespeichert, nicht meal!
             const updatedEntry = { 
-                meal: mealName, 
+                mealId: mealId, 
                 chef: currentChef || null 
             };
             
@@ -551,6 +537,7 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
+            // Das Archiv braucht nur den Namen als Text, das passt also!
             if (planDay <= today && mealName !== "---") {
                 await updateArchiveAutomatically(mealName, planDay, parts[1]);
             }
@@ -1054,109 +1041,38 @@
             event.stopPropagation();
             if (!isEditMode) return;
             const currentData = planData[key] || {};
-            const currentMeal = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
+            
+            // WICHTIG: Die bestehende mealId darf nicht verloren gehen!
+            const currentMealId = (currentData && typeof currentData === 'object') ? currentData.mealId : null;
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
-            planData[key] = { meal: currentMeal || "---", chef: newChef };
+            
+            planData[key] = { mealId: currentMealId, chef: newChef };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
             await window.trackEdit(); 
         };
 
         window.selectDay = (key) => {
-            // WEICHE: Was soll bei einem Klick passieren?
-
-            // FALL 1: WIR SIND NICHT IM EDIT-MODUS
-            // -> Rezept-Popup öffnen, falls ein Gericht vorhanden ist.
+            // FALL 1: WIR SIND NICHT IM EDIT-MODUS -> Rezept öffnen
             if (!isEditMode) {
                 const currentData = planData[key];
-                
-                // Wir müssen hier die neue mealId-Struktur verwenden
                 if (currentData && typeof currentData === 'object' && currentData.mealId) {
                     const mealId = currentData.mealId;
-                    const mealObj = speisekammerData.find(m => m.id === mealId); // Suche mit ID
+                    const mealObj = speisekammerData.find(m => m.id === mealId); 
 
                     if (mealObj) {
-                        // Öffne das Popup mit der korrekten ID und dem Namen
                         window.openRecipePopup(mealObj.id, mealObj.name);
                     } else {
                         alert("Rezept nicht in der Datenbank gefunden.");
                     }
                 }
-                return; // Funktion hier beenden.
+                return; 
             }
 
-            // FALL 2: WIR SIND IM EDIT-MODUS
-            // -> Modal zum Bearbeiten direkt öffnen.
-            
-            const parts = key.split('-');
-            const day = parts[2];
-            const kw = parseInt(parts[1].replace('KW', ''));
-            
-            const modal = document.getElementById('add-meal-modal');
-            const mealSelect = document.getElementById('meal-select');
-            const chefRadios = modal.querySelectorAll('input[name="chef-radio"]');
-
-            // Modal-Titel setzen
-            document.getElementById('modal-title').innerText = `${day}, KW ${kw}`;
-
-            // 1. Dropdown leeren und neu füllen
-            mealSelect.innerHTML = '<option value="">--- Gericht entfernen ---</option>';
-            speisekammerData.sort((a,b) => a.name.localeCompare(b.name)).forEach(meal => {
-                const option = document.createElement('option');
-                option.value = meal.id;
-                option.innerText = meal.name;
-                mealSelect.appendChild(option);
-            });
-
-            // 2. Bestehende Auswahl im Modal anzeigen
-            const existingData = planData[key];
-            if (existingData && typeof existingData === 'object') {
-                if (existingData.mealId) {
-                    mealSelect.value = existingData.mealId;
-                }
-                if (existingData.chef) {
-                    document.getElementById(`chef-${existingData.chef.toLowerCase()}`).checked = true;
-                } else {
-                    document.getElementById('chef-j').checked = true;
-                }
-            } else {
-                document.getElementById('chef-j').checked = true;
-            }
-
-            // Modal anzeigen
-            modal.style.display = 'flex';
-
-            // 3. Speicher-Logik
-            document.getElementById('save-meal-btn').onclick = async () => {
-                const selectedMealId = mealSelect.value;
-                let selectedChef = null;
-                chefRadios.forEach(radio => {
-                    if (radio.checked) {
-                        selectedChef = radio.value;
-                    }
-                });
-                
-                const updateData = selectedMealId ? 
-                    { [key]: { mealId: selectedMealId, chef: selectedChef } } :
-                    { [key]: { mealId: null, chef: null } };
-
-                try {
-                    await setDoc(doc(db, "planung", "wochenplan2026"), updateData, { merge: true });
-                    await setDoc(doc(db, "planung", "metadata"), {
-                        lastEditTime: Date.now(),
-                        lastEditBy: currentUserId
-                    }, { merge: true });
-                } catch (error) {
-                    console.error("Fehler beim Speichern des Plans:", error);
-                } finally {
-                    modal.style.display = 'none';
-                }
-            };
-
-            // 4. Schließen-Logik
-            document.getElementById('modal-close-btn').onclick = () => { modal.style.display = 'none'; };
-            window.onclick = (event) => { if (event.target == modal) { modal.style.display = 'none'; } };
+            // FALL 2: WIR SIND IM EDIT-MODUS -> Tag für die Auswahl markieren
+            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(`card-${key}`).classList.add('active');
+            selectedDayKey = key;
         };
-
 
         window.filterMeals = () => {
             const searchTerm = document.getElementById('mealSearch').value.toLowerCase();
