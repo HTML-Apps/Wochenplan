@@ -210,9 +210,14 @@
                     return;
                 }
 
-                console.log("Beide Datenquellen (Plan & Speisekammer) sind geladen. Rendere UI neu.");
+                console.log("Beide Datenquellen sind geladen. UI wird vollständig neu gerendert.");
                 
+                // --- GEÄNDERTE LOGIK START ---
+                // Die Aufrufe für die Historie und die Speisekammer-Anzeige
+                // werden jetzt HIER ausgeführt, im sicheren Bereich.
                 const counts = calculateCounts();
+                renderStorage(counts);
+                // --- GEÄNDERTE LOGIK ENDE ---
                 
                 // UI im Kalender aktualisieren
                 Object.keys(planData).forEach(key => {
@@ -221,13 +226,11 @@
                     let chef = null;
 
                     if (data && typeof data === 'object' && data.mealId) {
-                        // Jetzt ist sichergestellt, dass speisekammerData voll ist.
                         const mealObj = speisekammerData.find(m => m.id === data.mealId);
                         
                         if (mealObj) {
                             mealName = mealObj.name;
                         } else {
-                            // Dieser Fall tritt nur noch auf, wenn ein Gericht wirklich gelöscht wurde.
                             mealName = "Unbekannt";
                         }
                         chef = data.chef;
@@ -243,8 +246,7 @@
                     }
                 });
                 
-                renderStorage(counts);
-
+                // Die Einkaufsliste wird ebenfalls hier, im sicheren Bereich, generiert.
                 if (window.generateShoppingList) {
                     const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
                     window.generateShoppingList(filterArg);
@@ -255,8 +257,8 @@
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
-                    planDataLoaded = true; // Setze Flag, dass Plandaten da sind.
-                    processAndRenderUI();  // Versuche, die UI zu rendern.
+                    planDataLoaded = true;
+                    processAndRenderUI();
                 }
             });
 
@@ -266,16 +268,15 @@
                 snapshot.forEach((doc) => {
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
-                speisekammerDataLoaded = true; // Setze Flag, dass Speisekammer da ist.
-                processAndRenderUI(); // Versuche, die UI zu rendern.
+                speisekammerDataLoaded = true;
+                processAndRenderUI();
             });
 
-            // Der Listener für 'metadata' ist unabhängig und kann so bleiben wie er ist.
+            // Der Listener für 'metadata' ist unabhängig und bleibt unverändert.
             onSnapshot(doc(db, "planung", "metadata"), (ds) => {
                 if (ds.exists()) {
                     const data = ds.data();
                     if (data.lastEditTime && data.lastEditBy) {
-                        // ... (restlicher Code für Metadaten bleibt exakt gleich)
                         lastKnownEditTime = data.lastEditTime;
                         
                         const name = USER_MAP[data.lastEditBy] || "Jemand";
@@ -300,6 +301,7 @@
                 }
             });
         }
+
 
 
         function calculateCounts() {
