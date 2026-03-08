@@ -175,8 +175,17 @@
             isEditMode = document.getElementById('editToggle').checked;
             document.body.classList.toggle('edit-mode', isEditMode);
             if(!isEditMode) {
-                document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
-                selectedDayKey = null;
+                document.querySelectorAll('.day-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        // Wir holen den Key direkt aus der ID der angeklickten Karte.
+                        // Die ID ist z.B. 'card-2026-KW10-Montag'
+                        const key = card.id.replace('card-', ''); 
+                        
+                        // Wir rufen IMMER die zentrale 'selectDay'-Funktion auf,
+                        // die dann entscheidet, was zu tun ist (Popup oder Modal öffnen).
+                        selectDay(key);
+                    });
+                });
             }
         };
 
@@ -306,31 +315,28 @@
             const counts = {};
             const lastPlanned = {};
 
-            // 1. Initialisiere Zähler für alle Gerichte aus der Speisekammer
+            // 1. Initialisiere Zähler für JEDE meal.id aus der Speisekammer.
             speisekammerData.forEach(meal => {
-                counts[meal.id] = 0; // Wir verwenden die ID als Schlüssel
+                counts[meal.id] = 0; // KORREKTUR: Der Schlüssel ist die ID, nicht der Name.
             });
 
-            // 2. Iteriere durch den Plan und zähle die Vorkommen jeder mealId
+            // 2. Iteriere durch den Plan und zähle die Vorkommen jeder mealId.
             for (const key in planData) {
                 const data = planData[key];
 
-                // --- GEÄNDERTE LOGIK ---
-                // Wir prüfen jetzt, ob das Objekt existiert UND eine 'mealId' hat.
+                // KORREKTUR: Wir prüfen auf 'data.mealId', nicht mehr auf 'data.meal'.
                 if (data && typeof data === 'object' && data.mealId) {
                     const mealId = data.mealId;
 
-                    // Zähle das Vorkommen
+                    // Erhöhe den Zähler für die gefundene ID.
                     if (counts.hasOwnProperty(mealId)) {
                         counts[mealId]++;
                     }
 
-                    // Finde das Datum des letzten Plans für dieses Gericht
-                    // Der 'key' hat das Format 'YYYY-KWXX-Wochentag'
+                    // Finde die letzte geplante Kalenderwoche für diese ID.
                     const parts = key.split('-');
                     if (parts.length === 3) {
                         const kw = parseInt(parts[1].replace('KW', ''));
-                        // Vergleiche und speichere nur die höchste (also letzte) Kalenderwoche
                         if (!lastPlanned[mealId] || kw > lastPlanned[mealId]) {
                             lastPlanned[mealId] = kw;
                         }
@@ -338,9 +344,10 @@
                 }
             }
             
-            // Gib beide Informationen zurück
+            // Gib die korrekten Zähler zurück.
             return { counts, lastPlanned };
         }
+
 
         function getHeatStyle(count, min, max, mealName) {
             const isDarkMode = document.body.classList.contains('dark-mode');
