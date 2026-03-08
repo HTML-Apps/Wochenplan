@@ -231,6 +231,19 @@
                     });
                     
                     renderStorage(counts);
+
+                    // *** NEUE LOGIK START ***
+                    // Diese Zeile sorgt dafür, dass die aktuell ausgewählte Einkaufsliste
+                    // (sei es "Alle", "Julia" oder "Hendrik") bei jeder Planänderung
+                    // automatisch neu generiert wird.
+                    if (window.generateShoppingList) {
+                        // Die Funktion `generateShoppingList` erwartet `null` für die "Alle"-Liste.
+                        // Die Variable `activeShopFilter` speichert diesen Zustand jedoch als den String 'all'.
+                        // Daher wandeln wir 'all' hier in `null` um, bevor wir die Funktion aufrufen.
+                        const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
+                        window.generateShoppingList(filterArg);
+                    }
+                    // *** NEUE LOGIK ENDE ***
                 }
             });
 
@@ -273,6 +286,7 @@
                 }
             });
         }
+
 
         function calculateCounts() {
             const counts = {};
