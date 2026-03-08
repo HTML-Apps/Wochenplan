@@ -518,12 +518,14 @@
             // WICHTIG: mealId wird gespeichert, nicht meal!
             const updatedEntry = { 
                 mealId: mealId, 
-                chef: currentChef || null 
+                chef: currentChef
             };
             
-            planData[selectedDayKey] = updatedEntry;
-            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
-            await window.trackEdit(); 
+            await setDoc(doc(db, "planung", "wochenplan2026"), {
+                    [selectedDayKey]: updatedEntry
+                }, { merge: true });
+                
+            await window.trackEdit();
 
             const parts = selectedDayKey.split('-');
             const kwNum = parseInt(parts[1].replace('KW', ''));
