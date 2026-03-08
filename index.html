@@ -509,21 +509,20 @@
         window.assignMeal = async (mealId, mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
-            const currentData = planData[selectedDayKey];
-            let currentChef = null;
-            if (currentData && typeof currentData === 'object') {
-                currentChef = currentData.chef;
-            }
+            const currentData = planData[selectedDayKey] || {};
+            
+            // Sicherstellen, dass undefined zu null wird
+            const currentChef = (currentData && currentData.chef) ? currentData.chef : null;
 
-            // WICHTIG: mealId wird gespeichert, nicht meal!
+            // WICHTIG: mealId wird gespeichert. Auch hier sichern wir uns gegen undefined ab.
             const updatedEntry = { 
-                mealId: mealId, 
+                mealId: mealId || null, 
                 chef: currentChef
             };
             
             await setDoc(doc(db, "planung", "wochenplan2026"), {
-                    [selectedDayKey]: updatedEntry
-                }, { merge: true });
+                [selectedDayKey]: updatedEntry
+            }, { merge: true });
                 
             await window.trackEdit();
 
@@ -539,7 +538,7 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Das Archiv braucht nur den Namen als Text, das passt also!
+            // Das Archiv braucht weiterhin den Namen
             if (planDay <= today && mealName !== "---") {
                 await updateArchiveAutomatically(mealName, planDay, parts[1]);
             }
@@ -1042,14 +1041,19 @@
         window.setChef = async (key, chefLetter, event) => {
             event.stopPropagation();
             if (!isEditMode) return;
+            
             const currentData = planData[key] || {};
             
-            // WICHTIG: Die bestehende mealId darf nicht verloren gehen!
-            const currentMealId = (currentData && typeof currentData === 'object') ? currentData.mealId : null;
-            const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
+            // WICHTIG: undefined sicher abfangen und in null umwandeln
+            const currentMealId = (currentData && currentData.mealId) ? currentData.mealId : null;
+            const newChef = (currentData && currentData.chef === chefLetter) ? null : chefLetter;
             
-            planData[key] = { mealId: currentMealId, chef: newChef };
-            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+            // Anstatt das riesige planData-Objekt zurückzuschreiben, updaten wir nur den spezifischen Tag.
+            // Das ist viel sicherer und verhindert, dass Fehler von anderen Tagen mitgeschleppt werden.
+            await setDoc(doc(db, "planung", "wochenplan2026"), {
+                [key]: { mealId: currentMealId, chef: newChef }
+            }, { merge: true });
+            
             await window.trackEdit(); 
         };
 
