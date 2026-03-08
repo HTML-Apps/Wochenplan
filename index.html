@@ -200,83 +200,82 @@
         }
 
         function setupRealtimeSync() {
+            let planDataLoaded = false;
+            let speisekammerDataLoaded = false;
+
+            // Diese Funktion wird aufgerufen, sobald BEIDE Datensätze geladen sind.
+            function processAndRenderUI() {
+                // Wir führen die Funktion nur aus, wenn beide Flags auf true stehen.
+                if (!planDataLoaded || !speisekammerDataLoaded) {
+                    return;
+                }
+
+                console.log("Beide Datenquellen (Plan & Speisekammer) sind geladen. Rendere UI neu.");
+                
+                const counts = calculateCounts();
+                
+                // UI im Kalender aktualisieren
+                Object.keys(planData).forEach(key => {
+                    const data = planData[key];
+                    let mealName = "---";
+                    let chef = null;
+
+                    if (data && typeof data === 'object' && data.mealId) {
+                        // Jetzt ist sichergestellt, dass speisekammerData voll ist.
+                        const mealObj = speisekammerData.find(m => m.id === data.mealId);
+                        
+                        if (mealObj) {
+                            mealName = mealObj.name;
+                        } else {
+                            // Dieser Fall tritt nur noch auf, wenn ein Gericht wirklich gelöscht wurde.
+                            mealName = "Unbekannt";
+                        }
+                        chef = data.chef;
+                    }
+                    
+                    const el = document.getElementById(`text-${key}`);
+                    const card = document.getElementById(`card-${key}`);
+                    if (el) el.innerText = mealName;
+                    if (card) {
+                        card.classList.remove('chef-j', 'chef-h');
+                        if (chef === 'J') card.classList.add('chef-j');
+                        if (chef === 'H') card.classList.add('chef-h');
+                    }
+                });
+                
+                renderStorage(counts);
+
+                if (window.generateShoppingList) {
+                    const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
+                    window.generateShoppingList(filterArg);
+                }
+            }
+
             // Listener für den Wochenplan
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
-                    const counts = calculateCounts();
-                    
-                    // UI im Kalender aktualisieren
-                    Object.keys(planData).forEach(key => {
-                        const data = planData[key];
-                        let mealName = "---";
-                        let chef = null;
-
-                        if (data) {
-                            if (typeof data === 'object') {
-                                // --- GEÄNDERTE LOGIK START ---
-                                // Wir prüfen jetzt, ob eine 'mealId' vorhanden ist.
-                                if (data.mealId) {
-                                    // Mit der 'mealId' suchen wir das zugehörige Gericht in unseren geladenen 'speisekammerData'.
-                                    // 'speisekammerData' muss also geladen sein, bevor dieser Code läuft.
-                                    const mealObj = speisekammerData.find(m => m.id === data.mealId);
-                                    
-                                    if (mealObj) {
-                                        // Wenn wir das Gericht finden, nehmen wir seinen Namen für die Anzeige.
-                                        mealName = mealObj.name;
-                                    } else {
-                                        // Falls ein Gericht geplant war, aber aus der Speisekammer gelöscht wurde,
-                                        // zeigen wir einen Platzhalter an.
-                                        mealName = "Unbekannt";
-                                    }
-                                }
-                                // Die 'chef'-Logik bleibt unberührt.
-                                chef = data.chef;
-                                // --- GEÄNDERTE LOGIK ENDE ---
-
-                            } else {
-                                // Dieser Block dient der Abwärtskompatibilität, falls noch alte Daten (nur der Name als String)
-                                // vorhanden sind. Nach der Migration sollte er nicht mehr relevant sein.
-                                mealName = data;
-                            }
-                        }
-                        
-                        // Die restliche UI-Aktualisierung bleibt exakt gleich.
-                        const el = document.getElementById(`text-${key}`);
-                        const card = document.getElementById(`card-${key}`);
-                        if (el) el.innerText = mealName;
-                        if (card) {
-                            card.classList.remove('chef-j', 'chef-h');
-                            if (chef === 'J') card.classList.add('chef-j');
-                            if (chef === 'H') card.classList.add('chef-h');
-                        }
-                    });
-                    
-                    renderStorage(counts);
-
-                    // Die Logik zur automatischen Aktualisierung der Einkaufsliste bleibt unberührt und wichtig.
-                    if (window.generateShoppingList) {
-                        const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
-                        window.generateShoppingList(filterArg);
-                    }
+                    planDataLoaded = true; // Setze Flag, dass Plandaten da sind.
+                    processAndRenderUI();  // Versuche, die UI zu rendern.
                 }
             });
 
-            // Der Listener für 'speisekammer' bleibt unverändert. Er ist entscheidend,
-            // damit die obige Such-Logik immer aktuelle Daten hat.
+            // Listener für 'speisekammer'
             onSnapshot(query(collection(db, "speisekammer"), orderBy("name")), (snapshot) => {
                 speisekammerData = [];
                 snapshot.forEach((doc) => {
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
-                renderStorage(calculateCounts());
+                speisekammerDataLoaded = true; // Setze Flag, dass Speisekammer da ist.
+                processAndRenderUI(); // Versuche, die UI zu rendern.
             });
 
-            // Der Listener für 'metadata' bleibt ebenfalls komplett unverändert.
+            // Der Listener für 'metadata' ist unabhängig und kann so bleiben wie er ist.
             onSnapshot(doc(db, "planung", "metadata"), (ds) => {
                 if (ds.exists()) {
                     const data = ds.data();
                     if (data.lastEditTime && data.lastEditBy) {
+                        // ... (restlicher Code für Metadaten bleibt exakt gleich)
                         lastKnownEditTime = data.lastEditTime;
                         
                         const name = USER_MAP[data.lastEditBy] || "Jemand";
@@ -301,6 +300,7 @@
                 }
             });
         }
+
 
         function calculateCounts() {
             const counts = {};
