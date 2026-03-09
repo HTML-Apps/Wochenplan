@@ -257,8 +257,15 @@
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
                 
-                window.renderCalendar(); // <--- DIESE ZEILE IST WICHTIG
+                window.renderCalendar(); 
                 renderStorage(calculateCounts());
+
+                // NEU: Einkaufsliste auch hier aktualisieren, da sie nun zwingend 
+                // die Speisekammer-Daten (IDs) benötigt, um richtig zu laden!
+                if (window.generateShoppingList) {
+                    const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
+                    window.generateShoppingList(filterArg, true);
+                }
             });
 
             // --- Der angepasste Listener ---
