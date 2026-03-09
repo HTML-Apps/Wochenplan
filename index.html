@@ -256,6 +256,8 @@
                 snapshot.forEach((doc) => {
                     speisekammerData.push({ id: doc.id, ...doc.data() });
                 });
+                
+                window.renderCalendar(); // <--- DIESE ZEILE IST WICHTIG
                 renderStorage(calculateCounts());
             });
 
@@ -507,21 +509,18 @@
         window.assignMeal = async (mealId, mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
-            const currentData = planData[selectedDayKey];
-            let currentChef = null;
-            if (currentData && typeof currentData === 'object') {
-                currentChef = currentData.chef;
-            }
+            const currentData = planData[selectedDayKey] || {};
+            let currentChef = (typeof currentData === 'object') ? currentData.chef : null;
 
-            // NEU: Wir speichern die ID (für die Logik) UND den Namen (als Backup/fürs Archiv)
-            const updatedEntry = { 
-                mealId: mealId,
-                meal: mealName, 
+            planData[selectedDayKey] = { 
+                mealId: mealId || null,
+                meal: mealName || "---", 
                 chef: currentChef || null 
             };
             
-            planData[selectedDayKey] = updatedEntry;
-            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+            // Auch hier: Sicherheits-Säuberung für Firebase
+            const safePlanData = JSON.parse(JSON.stringify(planData));
+            await setDoc(doc(db, "planung", "wochenplan2026"), safePlanData, { merge: true });
             await window.trackEdit(); 
 
             const parts = selectedDayKey.split('-');
@@ -655,6 +654,40 @@
             const newName = document.getElementById('editRecipeTitle').value.trim();
             if (!newName) return alert("Bitte einen Namen eingeben.");
 
+            // --- NEU: Auto-Migration alter Kalender-Einträge ---
+            // Wenn der Name geändert wird, reparieren wir direkt alte Einträge in der Historie
+            const oldMealObj = speisekammerData.find(m => m.id === currentRecipeId);
+            const oldName = oldMealObj ? oldMealObj.name : null;
+
+            if (oldName && oldName !== newName) {
+                let planChanged = false;
+                Object.keys(planData).forEach(key => {
+                    const data = planData[key];
+                    // Fall 1: Ganz altes Text-Format
+                    if (data === oldName) {
+                        planData[key] = { mealId: currentRecipeId, meal: newName, chef: null };
+                        planChanged = true;
+                    } 
+                    // Fall 2: Objekt-Format
+                    else if (data && typeof data === 'object') {
+                        if (data.meal === oldName || data.mealId === currentRecipeId) {
+                            planData[key] = {
+                                mealId: currentRecipeId,
+                                meal: newName,
+                                chef: data.chef || null
+                            };
+                            planChanged = true;
+                        }
+                    }
+                });
+
+                if (planChanged) {
+                    const safePlanData = JSON.parse(JSON.stringify(planData));
+                    await setDoc(doc(db, "planung", "wochenplan2026"), safePlanData, { merge: true });
+                }
+            }
+            // --- ENDE Auto-Migration ---
+
             const rows = document.querySelectorAll('.zutat-row');
             const zutatenArray = Array.from(rows).map(row => ({
                 menge: row.querySelector('.z-menge').value,
@@ -677,21 +710,13 @@
             document.getElementById('viewZubereitung').innerText = zubereitung;
 
             // 3. ALLE Fenster schließen
-            // Zuerst den Bearbeitungsmodus verlassen
             window.cancelEdit(); 
-
-            // Hier alle Overlay-Container ausblenden (IDs bitte an dein Projekt anpassen)
             const overlays = ['recipeModal', 'editOverlay', 'dialog']; 
             overlays.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
-
-            // Optional: Den Vokabel/Rezept-Listen-Zustand zurücksetzen
-            if (typeof hideVokabelListe === "function") {
-                hideVokabelListe();
-            }
-
+            
             console.log("Speichervorgang abgeschlossen, zurück zum Hauptbildschirm.");
         };
 
@@ -1043,16 +1068,22 @@
             if (!isEditMode) return;
             const currentData = planData[key] || {};
             
-            const currentMealId = (typeof currentData === 'object') ? currentData.mealId : null;
-            const currentMealName = (typeof currentData === 'object') ? currentData.meal : currentData;
-            const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
+            // Wir greifen die alten Daten sicher ab, falls vorhanden
+            const currentMealId = (typeof currentData === 'object' && currentData.mealId) ? currentData.mealId : null;
+            const currentMealName = (typeof currentData === 'object' && currentData.meal) ? currentData.meal : (typeof currentData === 'string' ? currentData : "---");
+            const currentChef = (typeof currentData === 'object') ? currentData.chef : null;
+            
+            const newChef = (currentChef === chefLetter) ? null : chefLetter;
             
             planData[key] = { 
-                mealId: currentMealId,
+                mealId: currentMealId || null,
                 meal: currentMealName || "---", 
-                chef: newChef 
+                chef: newChef || null 
             };
-            await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
+
+            // WICHTIG: Firebase stürzt bei 'undefined' ab. Das säubert alle ungültigen Daten:
+            const safePlanData = JSON.parse(JSON.stringify(planData));
+            await setDoc(doc(db, "planung", "wochenplan2026"), safePlanData, { merge: true });
             await window.trackEdit(); 
         };
 
