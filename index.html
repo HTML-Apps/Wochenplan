@@ -204,43 +204,48 @@
             }
         }
 
+        window.renderCalendar = () => {
+            Object.keys(planData).forEach(key => {
+                const data = planData[key];
+                let mealName = "---";
+                let chef = null;
+
+                if (data) {
+                    if (typeof data === 'object') {
+                        // NEU: Priorisiere die mealId, falls vorhanden
+                        if (data.mealId) {
+                            const mealObj = speisekammerData.find(m => m.id === data.mealId);
+                            mealName = mealObj ? mealObj.name : (data.meal || "Gelöscht");
+                        } else {
+                            mealName = data.meal || "---"; // Fallback für alte Einträge
+                        }
+                        chef = data.chef;
+                    } else {
+                        mealName = data; // Fallback für GANZ alte Einträge (nur Text)
+                    }
+                }
+                
+                const el = document.getElementById(`text-${key}`);
+                const card = document.getElementById(`card-${key}`);
+                if (el) el.innerText = mealName;
+                if (card) {
+                    card.classList.remove('chef-j', 'chef-h');
+                    if (chef === 'J') card.classList.add('chef-j');
+                    if (chef === 'H') card.classList.add('chef-h');
+                }
+            });
+        };
+
         function setupRealtimeSync() {
             onSnapshot(doc(db, "planung", "wochenplan2026"), (ds) => {
                 if (ds.exists()) {
                     planData = ds.data();
-                    const counts = calculateCounts();
                     
-                    // UI im Kalender aktualisieren
-                    Object.keys(planData).forEach(key => {
-                        const data = planData[key];
-                        let mealName = "---";
-                        let chef = null;
+                    window.renderCalendar(); // UI aktualisieren
+                    renderStorage(calculateCounts());
 
-                        if (data) {
-                            if (typeof data === 'object') {
-                                mealName = data.meal || "---";
-                                chef = data.chef;
-                            } else {
-                                mealName = data;
-                            }
-                        }
-                        
-                        const el = document.getElementById(`text-${key}`);
-                        const card = document.getElementById(`card-${key}`);
-                        if (el) el.innerText = mealName;
-                        if (card) {
-                            card.classList.remove('chef-j', 'chef-h');
-                            if (chef === 'J') card.classList.add('chef-j');
-                            if (chef === 'H') card.classList.add('chef-h');
-                        }
-                    });
-                    
-                    renderStorage(counts);
-
-                    // *** AKTUALISIERTE LOGIK: Silent Update ***
                     if (window.generateShoppingList) {
                         const filterArg = activeShopFilter === 'all' ? null : activeShopFilter;
-                        // Wir fügen hier 'true' hinzu -> isSilent = true
                         window.generateShoppingList(filterArg, true);
                     }
                 }
@@ -289,9 +294,25 @@
         function calculateCounts() {
             const counts = {};
             Object.values(planData).forEach(val => {
-                const name = (val && typeof val === 'object') ? val.meal : val;
-                if (name && name !== "---") {
-                    counts[name] = (counts[name] || 0) + 1;
+                let id = null;
+                let name = null;
+                
+                if (val && typeof val === 'object') {
+                    id = val.mealId;
+                    name = val.meal;
+                } else {
+                    name = val;
+                }
+
+                // Wir zählen primär über die ID
+                if (id) {
+                    counts[id] = (counts[id] || 0) + 1;
+                } else if (name && name !== "---") {
+                    // Abwärtskompatibilität: Falls keine ID da ist, suche die ID über den Namen
+                    const found = speisekammerData.find(m => m.name === name);
+                    if (found) {
+                        counts[found.id] = (counts[found.id] || 0) + 1;
+                    }
                 }
             });
             return counts;
@@ -346,9 +367,23 @@
 
             Object.keys(planData).forEach(key => {
                 const data = planData[key];
-                let mealName = (data && typeof data === 'object') ? data.meal : data;
+                let mealId = null;
+                let mealName = null;
 
-                if (mealName && mealName !== "---") {
+                if (data && typeof data === 'object') {
+                    mealId = data.mealId;
+                    mealName = data.meal;
+                } else {
+                    mealName = data;
+                }
+
+                // Fallback für alte Einträge
+                if (!mealId && mealName && mealName !== "---") {
+                    const found = speisekammerData.find(m => m.name === mealName);
+                    if (found) mealId = found.id;
+                }
+
+                if (mealId) {
                     const parts = key.split('-');
                     if (parts.length === 3) {
                         const kwNum = parseInt(parts[1].replace('KW', ''));
@@ -360,31 +395,31 @@
 
                         if (planDay <= now) {
                             const ts = planDay.getTime();
-                            if (!lastCookedTimestamp[mealName] || ts > lastCookedTimestamp[mealName]) {
-                                lastCookedTimestamp[mealName] = ts;
+                            if (!lastCookedTimestamp[mealId] || ts > lastCookedTimestamp[mealId]) {
+                                lastCookedTimestamp[mealId] = ts; // Speichern über ID!
                             }
                         }
                     }
                 }
             });
 
-            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.name] || 0);
+            // Zähle über die ID
+            const countValues = speisekammerData.filter(i => i.name !== "---").map(i => counts[i.id] || 0);
             const minCount = countValues.length > 0 ? Math.min(...countValues) : 0;
             const maxCount = countValues.length > 0 ? Math.max(...countValues) : 0;
 
             storageEl.innerHTML = "";
-            
             renderTagFilters();
 
             speisekammerData.forEach((item) => {
-                const count = counts[item.name] || 0;
+                const count = counts[item.id] || 0; // Zähle über die ID!
                 const dynamicStyle = getHeatStyle(count, minCount, maxCount, item.name);
                 
                 let statusText = item.name === "---" ? "Platzhalter" : (count > 0 ? `${count}x geplant` : 'neu');
                 
                 let timeLabel = "";
-                if (lastCookedTimestamp[item.name]) {
-                    const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.name]) / (1000 * 60 * 60 * 24));
+                if (lastCookedTimestamp[item.id]) { // Abruf über ID!
+                    const diffDays = Math.round((now.getTime() - lastCookedTimestamp[item.id]) / (1000 * 60 * 60 * 24));
                     if (diffDays === 0) {
                         timeLabel = "heute";
                     } else if (diffDays < 7) {
@@ -463,13 +498,13 @@
 
         window.handleMealClick = async (mealId, mealName) => {
             if (isEditMode) {
-                window.assignMeal(mealName);
+                window.assignMeal(mealId, mealName); // ID wird nun übergeben!
             } else {
                 window.openRecipePopup(mealId, mealName);
             }
         };
 
-        window.assignMeal = async (mealName) => {
+        window.assignMeal = async (mealId, mealName) => {
             if (!selectedDayKey || !isEditMode) return;
             
             const currentData = planData[selectedDayKey];
@@ -478,7 +513,9 @@
                 currentChef = currentData.chef;
             }
 
+            // NEU: Wir speichern die ID (für die Logik) UND den Namen (als Backup/fürs Archiv)
             const updatedEntry = { 
+                mealId: mealId,
                 meal: mealName, 
                 chef: currentChef || null 
             };
@@ -706,16 +743,24 @@
             if (filterChef === 'J') listType = "Liste für Julia";
             if (filterChef === 'H') listType = "Liste für Hendrik";
 
-            // 1. Gerichte sammeln
+            // 1. Gerichte sammeln (in generateShoppingList)
             daysFull.forEach(day => {
                 const key = `2026-KW${kwNum}-${day}`;
                 const data = planData[key];
                 if (data) {
-                    let mealName = (typeof data === 'object') ? data.meal : data;
-                    let mealChef = (typeof data === 'object') ? data.chef : null;
-                    if (mealName && mealName !== "---") {
-                        if (filterChef && mealChef !== filterChef) return; 
-                        weekMeals.push(mealName);
+                    let mId = (typeof data === 'object') ? data.mealId : null;
+                    let mName = (typeof data === 'object') ? data.meal : data;
+                    let mChef = (typeof data === 'object') ? data.chef : null;
+                    
+                    // Fallback für alte Einträge
+                    if (!mId && mName && mName !== "---") {
+                        const found = speisekammerData.find(m => m.name === mName);
+                        if (found) mId = found.id;
+                    }
+
+                    if (mId) {
+                        if (filterChef && mChef !== filterChef) return; 
+                        weekMeals.push(mId); // Wir sammeln nun die IDs!
                     }
                 }
             });
@@ -751,21 +796,17 @@
                     console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
                 }
 
-                for (const mealName of weekMeals) {
-                    const mealObj = speisekammerData.find(m => m.name === mealName);
-                    if (mealObj) {
-                        // Hier nutzen wir die ID aus dem mealObj (da wir wieder im Text-Modus sind)
-                        const res = await getDoc(doc(db, "rezepte", mealObj.id));
-                        if (res.exists() && Array.isArray(res.data().zutaten)) {
-                            res.data().zutaten.forEach(z => {
-                                const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
-                                if (!consolidated[key]) {
-                                    const isChecked = existingItems[key] === true;
-                                    consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
-                                }
-                                consolidated[key].menge += parseFloat(z.menge || 0);
-                            });
-                        }
+                for (const mealId of weekMeals) { // Schleife läuft jetzt über IDs
+                    const res = await getDoc(doc(db, "rezepte", mealId));
+                    if (res.exists() && Array.isArray(res.data().zutaten)) {
+                        res.data().zutaten.forEach(z => {
+                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                            if (!consolidated[key]) {
+                                const isChecked = existingItems[key] === true;
+                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
+                            }
+                            consolidated[key].menge += parseFloat(z.menge || 0);
+                        });
                     }
                 }
             }
@@ -1001,9 +1042,16 @@
             event.stopPropagation();
             if (!isEditMode) return;
             const currentData = planData[key] || {};
-            const currentMeal = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
+            
+            const currentMealId = (typeof currentData === 'object') ? currentData.mealId : null;
+            const currentMealName = (typeof currentData === 'object') ? currentData.meal : currentData;
             const newChef = (typeof currentData === 'object' && currentData.chef === chefLetter) ? null : chefLetter;
-            planData[key] = { meal: currentMeal || "---", chef: newChef };
+            
+            planData[key] = { 
+                mealId: currentMealId,
+                meal: currentMealName || "---", 
+                chef: newChef 
+            };
             await setDoc(doc(db, "planung", "wochenplan2026"), planData, { merge: true });
             await window.trackEdit(); 
         };
@@ -1011,15 +1059,18 @@
         window.selectDay = (key) => {
             if (!isEditMode) {
                 const currentData = planData[key];
+                let mealId = (currentData && typeof currentData === 'object') ? currentData.mealId : null;
                 let mealName = (currentData && typeof currentData === 'object') ? currentData.meal : currentData;
 
-                if (mealName && mealName !== "---") {
-                    const mealObj = speisekammerData.find(m => m.name === mealName);
-                    if (mealObj) {
-                        window.openRecipePopup(mealObj.id, mealName);
-                    } else {
-                        alert("Rezept nicht in der Datenbank gefunden.");
-                    }
+                if (!mealId && mealName && mealName !== "---") {
+                    const found = speisekammerData.find(m => m.name === mealName);
+                    if (found) mealId = found.id;
+                }
+
+                if (mealId) {
+                    const mealObj = speisekammerData.find(m => m.id === mealId);
+                    const displayName = mealObj ? mealObj.name : mealName;
+                    window.openRecipePopup(mealId, displayName);
                 }
                 return; 
             }
