@@ -843,7 +843,10 @@
                             if (mengeVal === 1 && einheitVal === "g") {
                                 return; // Überspringt diese Zutat (sie landet nicht in 'consolidated')
                             }
-                            // --------------------------------
+                            if (mengeVal === 2 && einheitVal === "g") {
+                                return; // Überspringt diese Zutat (sie landet nicht in 'consolidated')
+                            }
+                            // ------------------------------
 
                             const key = activeShopFilter === 'all' 
                                 ? `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`
