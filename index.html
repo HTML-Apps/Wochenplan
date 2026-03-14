@@ -784,7 +784,6 @@
                     let mName = (typeof data === 'object') ? data.meal : data;
                     let mChef = (typeof data === 'object') ? data.chef : null;
                     
-                    // Fallback für alte Einträge
                     if (!mId && mName && mName !== "---") {
                         const found = speisekammerData.find(m => m.name === mName);
                         if (found) mId = found.id;
@@ -792,7 +791,8 @@
 
                     if (mId) {
                         if (filterChef && mChef !== filterChef) return; 
-                        weekMeals.push(mId); // Wir sammeln nun die IDs!
+                        // NEU: Wir speichern jetzt ein Objekt mit ID und Namen!
+                        weekMeals.push({ id: mId, name: mName }); 
                     }
                 }
             });
@@ -820,7 +820,10 @@
                     const existingDocSnap = await getDoc(existingDocRef);
                     if (existingDocSnap.exists() && Array.isArray(existingDocSnap.data().items)) {
                         existingDocSnap.data().items.forEach(item => {
-                            const key = `${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`;
+                            // NEU: Der Key beinhaltet den Gerichtsnamen, wenn gefiltert wird
+                            const key = activeShopFilter === 'all' 
+                                ? `${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`
+                                : `${item.mealName}_${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`;
                             existingItems[key] = item.checked;
                         });
                     }
@@ -828,14 +831,24 @@
                     console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
                 }
 
-                for (const mealId of weekMeals) { // Schleife läuft jetzt über IDs
-                    const res = await getDoc(doc(db, "rezepte", mealId));
+                for (const meal of weekMeals) { // NEU: meal ist jetzt ein Objekt {id, name}
+                    const res = await getDoc(doc(db, "rezepte", meal.id));
                     if (res.exists() && Array.isArray(res.data().zutaten)) {
                         res.data().zutaten.forEach(z => {
-                            const key = `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+                            // NEU: Wenn gefiltert, fügen wir den Gerichtsnamen in den Key ein, um pro Gericht zu konsolidieren
+                            const key = activeShopFilter === 'all' 
+                                ? `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`
+                                : `${meal.name}_${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
+
                             if (!consolidated[key]) {
                                 const isChecked = existingItems[key] === true;
-                                consolidated[key] = { name: z.name, menge: 0, einheit: z.einheit, checked: isChecked };
+                                consolidated[key] = { 
+                                    name: z.name, 
+                                    menge: 0, 
+                                    einheit: z.einheit, 
+                                    checked: isChecked,
+                                    mealName: activeShopFilter === 'all' ? null : meal.name // NEU: Gericht speichern
+                                };
                             }
                             consolidated[key].menge += parseFloat(z.menge || 0);
                         });
@@ -843,9 +856,19 @@
                 }
             }
 
+            // NEU: Bevor wir speichern, sortieren wir die Liste vor (Gericht alphabetisch, dann Status)
+            let itemsArray = Object.values(consolidated);
+            itemsArray.sort((a, b) => {
+                if (a.mealName && b.mealName) {
+                    if (a.mealName === b.mealName) return a.checked - b.checked;
+                    return a.mealName.localeCompare(b.mealName);
+                }
+                return a.checked - b.checked;
+            });
+
             // 4. In Firebase speichern
             await setDoc(doc(db, "einkaufslisten", shoppingListId), {
-                items: Object.values(consolidated),
+                items: itemsArray, // NEU: Das sortierte Array verwenden
                 kw: currentKW,
                 type: listType,
                 filter: activeShopFilter,
@@ -1039,15 +1062,28 @@
                 }
                 
                 const items = ds.data().items;
-                content.innerHTML = items.map((item, index) => `
-                    <div class="shop-item">
-                        <input type="checkbox" ${item.checked ? 'checked' : ''} 
-                            onchange="window.toggleListItem('${shoppingListId}', ${index})">
-                        <span style="${item.checked ? 'text-decoration:line-through; color: var(--text-muted, #94a3b8);' : ''}">
-                            <strong>${item.menge > 0 ? item.menge : ''} ${item.einheit}</strong> ${item.name}
-                        </span>
-                    </div>
-                `).join('');
+                let currentMeal = null;
+                let html = "";
+
+                items.forEach((item, index) => {
+                    // Wenn wir ein neues Gericht sehen, rendern wir eine Überschrift
+                    if (item.mealName && item.mealName !== currentMeal) {
+                        html += `<h4 style="margin: 20px 0 8px 0; color: var(--primary); border-bottom: 2px solid #f1f5f9; padding-bottom: 4px;">${item.mealName}</h4>`;
+                        currentMeal = item.mealName;
+                    }
+
+                    html += `
+                        <div class="shop-item">
+                            <input type="checkbox" ${item.checked ? 'checked' : ''} 
+                                onchange="window.toggleListItem('${shoppingListId}', ${index})">
+                            <span style="${item.checked ? 'text-decoration:line-through; color: var(--text-muted, #94a3b8);' : ''}">
+                                <strong>${item.menge > 0 ? item.menge : ''} ${item.einheit}</strong> ${item.name}
+                            </span>
+                        </div>
+                    `;
+                });
+
+                content.innerHTML = html;
             });
         };
 
@@ -1060,9 +1096,16 @@
                 items[index].checked = !items[index].checked;
 
                 // Schritt 2 (NEU): Die gesamte Liste wird neu sortiert.
-                // Der Vergleich `a.checked - b.checked` sorgt dafür, dass alle Elemente mit
-                // `checked: false` (Wert 0) vor denen mit `checked: true` (Wert 1) landen.
-                items.sort((a, b) => a.checked - b.checked);
+                // Wenn es nach Gerichten gegliedert ist, sortieren wir zuerst nach Gericht, DANN nach Checkbox.
+                items.sort((a, b) => {
+                    if (a.mealName && b.mealName) {
+                        if (a.mealName === b.mealName) {
+                            return a.checked - b.checked; // Innerhalb des Gerichts abgehaktes nach unten
+                        }
+                        return a.mealName.localeCompare(b.mealName); // Gerichte zusammenhalten
+                    }
+                    return a.checked - b.checked; // Fallback für die "Alle" Liste
+                });
 
                 // Schritt 3: Die neu sortierte Liste wird in der Datenbank gespeichert.
                 await setDoc(docRef, { items: items }, { merge: true });
@@ -1157,12 +1200,28 @@
 
         window.getFormattedList = () => {
             const currentKW = document.getElementById('shopTitle').innerText;
-            const items = Array.from(document.querySelectorAll('.shop-item'))
-                .filter(item => !item.querySelector('input').checked)
-                .map(item => {
-                    return item.querySelector('span').innerText.replace(/\s+/g, ' ').trim();
-                });
-            return `${currentKW}\n\n${items.join('\n')}`;
+            const contentDiv = document.getElementById('shoppingListContent');
+
+            let textList = `${currentKW}\n\n`;
+
+            // Wir gehen alle HTML-Elemente der Liste von oben nach unten durch
+            Array.from(contentDiv.children).forEach(child => {
+                if (child.tagName.toLowerCase() === 'h4') {
+                    // Es ist eine Gericht-Überschrift
+                    textList += `\n${child.innerText}\n`;
+                } else if (child.classList.contains('shop-item')) {
+                    // Es ist eine Zutat
+                    const isChecked = child.querySelector('input').checked;
+                    if (!isChecked) { // Nur un-abgehakte kopieren
+                        const itemText = child.querySelector('span').innerText.replace(/\s+/g, ' ').trim();
+                        // Wenn wir in einer personalisierten Liste sind (hat <h4> davor), machen wir ein "-" davor
+                        const prefix = document.querySelector('#shoppingListContent h4') ? '- ' : '';
+                        textList += `${prefix}${itemText}\n`;
+                    }
+                }
+            });
+
+            return textList.trim();
         };
 
         window.copyToClipboard = async () => {
