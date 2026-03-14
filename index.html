@@ -90,7 +90,7 @@
             "Salat": { label: "Salat", icon: "🥗" },
             "Teiggericht": { label: "Teiggericht", icon: "🌾" },
             "Suppe": { label: "Suppe", icon: "🍲" },
-            "vegetarisch": { label: "Veggie", icon: "🥕" },
+            "vegetarisch": { label: "Vegetarisch", icon: "🥕" },
             "Brot": { label: "Brot", icon: "🍞" },
             "Favorit": { label: "Favorit", icon: "⭐" }
         };
@@ -835,7 +835,7 @@
                     if (res.exists() && Array.isArray(res.data().zutaten)) {
                         res.data().zutaten.forEach(z => {
                             
-                            // --- NEU: Gewürz-Filter (1g) ---
+                            // --- NEU: Gewürz-Filter (1g und 2g) ---
                             // Wir wandeln die Menge in eine Zahl um und die Einheit in Kleinbuchstaben
                             const mengeVal = parseFloat(z.menge || 0);
                             const einheitVal = (z.einheit || "").trim().toLowerCase();
