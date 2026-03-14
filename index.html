@@ -820,7 +820,6 @@
                     const existingDocSnap = await getDoc(existingDocRef);
                     if (existingDocSnap.exists() && Array.isArray(existingDocSnap.data().items)) {
                         existingDocSnap.data().items.forEach(item => {
-                            // NEU: Der Key beinhaltet den Gerichtsnamen, wenn gefiltert wird
                             const key = activeShopFilter === 'all' 
                                 ? `${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`
                                 : `${item.mealName}_${item.name.trim().toLowerCase()}_${item.einheit.trim().toLowerCase()}`;
@@ -831,11 +830,21 @@
                     console.warn("Konnte vorherigen Listenstatus nicht laden.", e);
                 }
 
-                for (const meal of weekMeals) { // NEU: meal ist jetzt ein Objekt {id, name}
+                for (const meal of weekMeals) { 
                     const res = await getDoc(doc(db, "rezepte", meal.id));
                     if (res.exists() && Array.isArray(res.data().zutaten)) {
                         res.data().zutaten.forEach(z => {
-                            // NEU: Wenn gefiltert, fügen wir den Gerichtsnamen in den Key ein, um pro Gericht zu konsolidieren
+                            
+                            // --- NEU: Gewürz-Filter (1g) ---
+                            // Wir wandeln die Menge in eine Zahl um und die Einheit in Kleinbuchstaben
+                            const mengeVal = parseFloat(z.menge || 0);
+                            const einheitVal = (z.einheit || "").trim().toLowerCase();
+
+                            if (mengeVal === 1 && einheitVal === "g") {
+                                return; // Überspringt diese Zutat (sie landet nicht in 'consolidated')
+                            }
+                            // --------------------------------
+
                             const key = activeShopFilter === 'all' 
                                 ? `${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`
                                 : `${meal.name}_${z.name.trim().toLowerCase()}_${z.einheit.trim().toLowerCase()}`;
@@ -847,7 +856,7 @@
                                     menge: 0, 
                                     einheit: z.einheit, 
                                     checked: isChecked,
-                                    mealName: activeShopFilter === 'all' ? null : meal.name // NEU: Gericht speichern
+                                    mealName: activeShopFilter === 'all' ? null : meal.name 
                                 };
                             }
                             consolidated[key].menge += parseFloat(z.menge || 0);
