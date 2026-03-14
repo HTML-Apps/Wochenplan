@@ -1515,10 +1515,12 @@
         @media (max-width: 600px) { 
             .week-grid { grid-template-columns: 1fr; } 
             .controls-wrapper { width: 90%; flex-wrap: wrap; justify-content: center; } 
+            #btn-verbrauch-desktop {display: none;}
         }
 
         @media (min-width: 601px) and (max-width: 1023px) { 
             .week-grid { grid-template-columns: repeat(2, 1fr); } 
+            #btn-verbrauch-desktop {display: none;}
         }
 
         /* DESKTOP LAYOUT (Ab 1024px) */
@@ -1543,6 +1545,8 @@
             #editTagsContainer { justify-content: flex-start !important; }
             .history-footer { display: none !important; }
             .close-modal-btn { display: none !important; }
+
+            #btn-verbrauch-desktop {width: 100%;}
         }
     </style>
 </head>
@@ -1577,7 +1581,7 @@
             
             <div class="column-left">
                 <div class="slider-container"><div class="week-wrapper" id="weekWrapper"></div></div>
-                <button class="btn-hist" onclick="window.showConsumablesModal()" style="background: #5d5b7a;">Verbrauchsstoffe</button>
+                <button class="btn-hist" onclick="window.showConsumablesModal()" id="btn-verbrauch-desktop" style="background: #5d5b7a;">Verbrauchsstoffe</button>
             </div>
             
             <div class="column-middle">
