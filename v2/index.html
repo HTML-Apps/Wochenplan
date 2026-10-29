@@ -758,18 +758,26 @@ function assignTo(date,slot,rid,text){
   UI.assign=null;render();toast(rid?'Eingeplant: '+recipe(rid).name:'Eingetragen');
 }
 
+function filterButtons(dietSel,tagSel){
+  const noDiet=Object.values(S.recipes).some(r=>!dietOf(r.diet));
+  const b=(attr,v,icon,label,on)=>`<button class="ftag" ${attr}="${esc(v)}" aria-pressed="${on}" title="${esc(label)}" aria-label="${esc(label)}">${icon}</button>`;
+  return `<button class="ftag all" data-f="all" aria-pressed="${dietSel==='all'&&!tagSel.length}">Alle</button>`
+    +FILTER_ORDER.map(([k,v])=>k==='tag'?b('data-t',v,tagIcon(v),v,tagSel.includes(v)):v==='fav'?b('data-f','fav','⭐','Favoriten',dietSel==='fav'):b('data-f',v,DIET_ICON[v],dietLabel(v),dietSel===v)).join('')
+    +(noDiet?b('data-f','none','❔','Ohne Ernährungsangabe',dietSel==='none'):'')
+    +allTags().filter(t=>!BASE_TAGS.includes(t)).map(t=>b('data-t',t,tagIcon(t),t,tagSel.includes(t))).join('');
+}
 function openPicker(date,slot){
-  let q='',f='all';
+  let q='',f='all',tg=[];
   const draw=()=>{
     const H=heatData(),used=new Set(weekEntries().map(e=>e.recipeId));
-    const list=sortRecipes(Object.values(S.recipes).filter(r=>matchRecipe(r,q,f,[])),H);
+    const list=sortRecipes(Object.values(S.recipes).filter(r=>matchRecipe(r,q,f,tg)),H);
     $('#pickList').innerHTML=list.length?list.map(r=>`<button class="pick" style="--h:${hue(H.count[r.id]||0,H)}" data-pick="${esc(r.id)}"><div><div class="nm">${r.fav?'★ ':''}${esc(r.name)}</div><div class="sub"><i class="dd ${dietCls(r.diet)}"></i>${heatLine(r.id,H)}${used.has(r.id)?'<span>· schon diese Woche</span>':''}</div></div><span aria-hidden="true">›</span></button>`).join(''):`<div class="empty">Kein Gericht passt.</div>`;
-    $('#pickFilter').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===f));
+    $('#pickFilter').innerHTML=filterButtons(f,tg);
     $('#pickSort').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===UI.sort));
   };
   openSheet(head(dayLabel(date,slot),'Was gibt’s?')+`<div class="sheet-body">
     <input type="search" id="pickQ" placeholder="Gericht suchen …" aria-label="Suchen">
-    <div class="ftags" id="pickFilter"><button class="ftag all" data-f="all">Alle</button>${FILTER_ORDER.filter(([k])=>k==='diet').map(([,v])=>v==='fav'?`<button class="ftag" data-f="fav" title="Favoriten" aria-label="Favoriten">⭐</button>`:`<button class="ftag" data-f="${v}" title="${dietLabel(v)}" aria-label="${dietLabel(v)}">${DIET_ICON[v]}</button>`).join('')}</div>
+    <div class="ftags" id="pickFilter"></div>
     <div class="seg" id="pickSort"><button data-s="name">A–Z</button><button data-s="selten">Selten</button><button data-s="lange">Lange nicht</button><button data-s="oft">Oft</button></div>
     <div class="pick-list" id="pickList"></div>
     <span class="label">Ohne Rezept</span>
@@ -777,7 +785,11 @@ function openPicker(date,slot){
     <div class="row" style="flex-wrap:nowrap"><input type="text" id="freeText" placeholder="Freitext, z. B. Pizza vom Italiener"><button class="btn" id="freeAdd">OK</button></div>
   </div>`,el=>{
     el.querySelector('#pickQ').oninput=e=>{q=e.target.value;draw()};
-    el.querySelector('#pickFilter').onclick=e=>{const b=e.target.closest('button');if(b){f=b.dataset.f;draw()}};
+    el.querySelector('#pickFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+      if(b.dataset.t){const t=b.dataset.t;tg=tg.includes(t)?tg.filter(x=>x!==t):[...tg,t]}
+      else if(b.dataset.f==='all'){f='all';tg=[]}
+      else f=f===b.dataset.f?'all':b.dataset.f;
+      draw()};
     el.querySelector('#pickSort').onclick=e=>{const b=e.target.closest('button');if(b){UI.sort=b.dataset.s;pref.set('sort',UI.sort);draw();render()}};
     el.querySelector('#pickList').onclick=e=>{const b=e.target.closest('[data-pick]');if(b){closeSheet();assignTo(date,slot,b.dataset.pick)}};
     el.querySelectorAll('[data-text]').forEach(b=>b.onclick=()=>{closeSheet();assignTo(date,slot,null,b.dataset.text)});
