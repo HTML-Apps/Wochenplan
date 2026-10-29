@@ -122,7 +122,7 @@ body[data-tab="woche"] #col-woche, body[data-tab="menu"] #col-menu, body[data-ta
   .top .wrap{padding-block:5px}
   .top{display:none}
   body[data-tab="woche"] main.layout{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
-  body[data-tab="woche"] .col-head{padding-left:8px;padding-right:0}
+  body[data-tab="woche"] main .col-head{padding-left:8px;padding-right:0}
   main.layout{padding-block:14px calc(var(--tabh) + 16px + env(safe-area-inset-bottom,0px))}
   body[data-tab="woche"] main.layout{padding-bottom:calc(var(--tabh) + 8px + env(safe-area-inset-bottom,0px))}
   body[data-tab="woche"] .days{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 14px - 40px - 14px - var(--tabh) - 10px);height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 14px - 40px - 14px - var(--tabh) - 10px);grid-template-rows:repeat(7,minmax(58px,1fr))}
@@ -298,6 +298,10 @@ textarea{resize:vertical;min-height:120px;line-height:1.5}
 @media (prefers-reduced-motion:reduce){.sheet-panel{animation:none}}
 .grip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:4px auto 10px}
 .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.sheet.full{align-items:stretch}
+.sheet.full .sheet-panel{height:100%;max-height:100%;border-radius:0;border:0;padding-top:max(12px,env(safe-area-inset-top,0px));animation:none}
+.sheet.full .grip{display:none}
+.sheet-title{font-size:26px;text-transform:uppercase;letter-spacing:.05em;line-height:1}
 .sheet-head h2{font-size:28px;text-transform:uppercase;letter-spacing:.03em;line-height:1.05}
 .x{border:0;background:var(--surface-2);width:36px;height:36px;border-radius:50%;flex:none;font-size:20px;line-height:1}
 .sheet-body{display:grid;gap:14px}
@@ -748,7 +752,7 @@ function renderMore(){
 }
 
 /* ---------- Sheets ---------- */
-function openSheet(html,mount){$('#sheetBody').innerHTML=html;$('#sheet').hidden=false;document.body.classList.add('locked');$('.sheet-panel').scrollTop=0;mount&&mount($('#sheetBody'))}
+function openSheet(html,mount,full){$('#sheet').classList.toggle('full',!!full);$('#sheetBody').innerHTML=html;$('#sheet').hidden=false;document.body.classList.add('locked');$('.sheet-panel').scrollTop=0;mount&&mount($('#sheetBody'))}
 function closeSheet(){$('#sheet').hidden=true;document.body.classList.remove('locked')}
 const head=(eyebrow,title)=>`<div class="sheet-head"><div>${eyebrow?`<div class="label">${eyebrow}</div>`:''}<h2>${title}</h2></div><button class="x" data-act="close" aria-label="Schließen">×</button></div>`;
 const dayLabel=(date,slot)=>{const d=fromIso(date);return `${WD[(d.getDay()+6)%7]}, ${short(d)}${S.settings.slots.length>1?' · '+SLOT_LABEL[slot]:''}`};
@@ -777,10 +781,10 @@ function openPicker(date,slot){
     $('#pickFilter').innerHTML=filterButtons(f,tg);
     $('#pickSort').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===UI.sort));
   };
-  openSheet(head(dayLabel(date,slot),'Was gibt’s?')+`<div class="sheet-body">
-    <input type="search" id="pickQ" placeholder="Gericht suchen …" aria-label="Suchen">
+  openSheet(`<div class="sheet-head"><div class="label" style="align-self:center">${dayLabel(date,slot)}</div><button class="x" data-act="close" aria-label="Schließen">×</button></div>
+  <div class="sheet-body">
+    <div class="col-head"><h2 class="sheet-title">Was gibt’s?</h2><input type="search" id="pickQ" class="head-search" placeholder="Suchen …" aria-label="Gericht suchen"></div>
     <div class="ftags" id="pickFilter"></div>
-    <button class="btn" id="pickRandom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/></svg>Vorschlag: lange nicht gekocht</button>
     <div class="seg" id="pickSort"><button data-s="name">A–Z</button><button data-s="selten">Selten</button><button data-s="lange">Lange nicht</button><button data-s="oft">Oft</button></div>
     <div class="pick-list" id="pickList"></div>
     <span class="label">Ohne Rezept</span>
@@ -788,7 +792,6 @@ function openPicker(date,slot){
     <div class="row" style="flex-wrap:nowrap"><input type="text" id="freeText" placeholder="Freitext, z. B. Pizza vom Italiener"><button class="btn" id="freeAdd">OK</button></div>
   </div>`,el=>{
     el.querySelector('#pickQ').oninput=e=>{q=e.target.value;draw()};
-    el.querySelector('#pickRandom').onclick=()=>{closeSheet();suggest(date,slot)};
     el.querySelector('#pickFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;
       if(b.dataset.t){const t=b.dataset.t;tg=tg.includes(t)?tg.filter(x=>x!==t):[...tg,t]}
       else if(b.dataset.f==='all'){f='all';tg=[]}
@@ -800,7 +803,7 @@ function openPicker(date,slot){
     const free=()=>{const t=el.querySelector('#freeText').value.trim();if(t){closeSheet();assignTo(date,slot,null,t)}};
     el.querySelector('#freeAdd').onclick=free;el.querySelector('#freeText').onkeydown=e=>{if(e.key==='Enter')free()};
     draw();
-  });
+  },true);
 }
 function startPick(date,slot){if(wide()){UI.assign={date,slot};render();$('#col-menu').scrollTop=0}else openPicker(date,slot)}
 
