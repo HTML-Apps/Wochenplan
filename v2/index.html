@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wochenplaner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#000000" id="themeColor">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../cook.png" type="image/png">
+<link rel="apple-touch-icon" href="../cook.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: Mobile = eine Spalte mit Tab-Leiste unten; Desktop (ab 1100px) = Woche | Menüplan-Heatmap | Einkauf nebeneinander.
+   Look wie die Enyaq-App: tiefschwarz/graphit, Barlow Condensed für Überschriften und Zahlen. Farbe trägt nur Bedeutung
+   (Heatmap, Koch, Ernährung) – die Oberfläche selbst bleibt neutral. */
+:root{
+  --bg:#eceef2; --surface:#ffffff; --surface-2:#e3e6ec; --line:#d3d8e0; --ink:#111318; --muted:#5b6270;
+  --inv:#111318; --inv-ink:#ffffff; --danger:#c0362c; --ok:#2f7d4a;
+  --vegan:#2f8a3b; --veggie:#8f7a0c; --fish:#2563eb; --poultry:#c26a12; --meat:#c0362c; --none:#7b8190;
+  --heat-s:82%; --heat-l:89%; --heat-a:1; --heat-bs:65%; --heat-bl:58%;
+  --font-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:14px; --hh:64px; --shadow:0 1px 2px rgba(10,14,22,.06),0 8px 24px rgba(10,14,22,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#000000; --surface:#111318; --surface-2:#1b1e25; --line:#272b34; --ink:#eceef2; --muted:#8e95a3;
+  --inv:#eceef2; --inv-ink:#0b0c10; --danger:#f07a70; --ok:#6fcf8a;
+  --vegan:#6fcf78; --veggie:#dcc552; --fish:#6ea8ff; --poultry:#f0a352; --meat:#f07a70; --none:#9aa0ad;
+  --heat-s:75%; --heat-l:50%; --heat-a:.2; --heat-bs:70%; --heat-bl:55%;
+  --shadow:none; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#000000; --surface:#111318; --surface-2:#1b1e25; --line:#272b34; --ink:#eceef2; --muted:#8e95a3;
+  --inv:#eceef2; --inv-ink:#0b0c10; --danger:#f07a70; --ok:#6fcf8a;
+  --vegan:#6fcf78; --veggie:#dcc552; --fish:#6ea8ff; --poultry:#f0a352; --meat:#f07a70; --none:#9aa0ad;
+  --heat-s:75%; --heat-l:50%; --heat-a:.2; --heat-bs:70%; --heat-bl:55%;
+  --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+body.locked{overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;font-weight:700;letter-spacing:.01em}
+.wrap{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--font-display);font-variant-numeric:tabular-nums}
+
+/* ---------- Login ---------- */
+#login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding-block:32px}
+.login-card{width:100%;max-width:380px;display:grid;gap:18px;text-align:center}
+.login-card h1{font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:.04em}
+.login-card p{margin:0;color:var(--muted)}
+.login-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.login-week span{aspect-ratio:1;border-radius:10px;background:hsl(var(--h) var(--heat-s) var(--heat-l) / var(--heat-a));border:1.5px solid hsl(var(--h) var(--heat-bs) var(--heat-bl));display:grid;place-items:center;font-family:var(--font-display);font-weight:600;font-size:14px}
+.login-err{color:var(--danger);font-size:14px}
+
+/* ---------- Kopf ---------- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;min-height:var(--hh)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand h1{font-size:24px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.brand .v{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:0 5px;color:var(--muted);font-family:var(--font-body)}
+.edit-info{border:0;background:none;padding:4px 8px;border-radius:8px;color:var(--muted);font-size:12px;display:inline-flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.edit-info:hover{background:var(--surface-2)}
+.edit-info .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:none}
+.weeknav{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.weeknav button{border:0;background:none;height:34px;min-width:34px;border-radius:999px;display:grid;place-items:center}
+.weeknav button:hover{background:var(--surface-2)}
+.weeknav .kw{padding:0 8px;line-height:1.05;text-align:center}
+.weeknav .kw b{font-family:var(--font-display);font-size:18px;font-weight:700;display:block;letter-spacing:.02em}
+.weeknav .kw span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.icon-btn{border:1px solid var(--line);background:var(--surface);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
+.icon-btn:hover{background:var(--surface-2)}
+.icon-btn svg,.btn svg{width:18px;height:18px}
+@media (max-width:560px){.brand h1{font-size:20px}.edit-info{display:none}.top .gear{display:none}}
+
+#sysBanner{margin-top:12px}
+main.layout{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
+.col{display:none;flex-direction:column;gap:14px;min-width:0}
+.col > *{flex-shrink:0}
+body[data-tab="woche"] #col-woche, body[data-tab="menu"] #col-menu, body[data-tab="einkauf"] #col-einkauf, body[data-tab="mehr"] #col-mehr{display:flex}
+.col-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.col-head h2{font-size:26px;text-transform:uppercase;letter-spacing:.05em;line-height:1}
+.col-head h2 small{font-size:15px;color:var(--muted);font-weight:600;letter-spacing:0;margin-left:6px}
+
+@media (min-width:1100px){
+  main.layout{display:grid;grid-template-columns:minmax(300px,370px) minmax(0,1fr) minmax(280px,350px);gap:22px;align-items:start;padding-block:18px 24px}
+  body:not([data-tab="mehr"]) #col-woche, body:not([data-tab="mehr"]) #col-menu, body:not([data-tab="mehr"]) #col-einkauf{display:flex}
+  body[data-tab="mehr"] main.layout{display:block;max-width:760px}
+  .col{position:sticky;top:calc(var(--hh) + 18px);max-height:calc(100vh - var(--hh) - 36px);overflow:auto;scrollbar-width:thin;padding-bottom:8px}
+  .tabs{display:none}
+  .only-mobile{display:none!important}
+}
+@media (max-width:1099px){.only-desktop{display:none!important}}
+
+/* ---------- Tabs ---------- */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs .inner{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tabs button{border:0;background:none;padding:9px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--muted)}
+.tabs button svg{width:22px;height:22px}
+.tabs button[aria-current="page"]{color:var(--ink)}
+.tabs .badge{font-size:10px;background:var(--ink);color:var(--bg);border-radius:999px;padding:0 5px;margin-left:3px;font-variant-numeric:tabular-nums}
+
+/* ---------- Bausteine ---------- */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--inv);border-color:var(--inv);color:var(--inv-ink)}
+.btn.primary:hover{opacity:.9}
+.btn.danger{color:var(--danger)}
+.btn.ghost{background:none;border-color:transparent}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:9px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chips.wrapy{flex-wrap:wrap;overflow:visible}
+.chips button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.chips button[aria-pressed="true"]{background:var(--inv);color:var(--inv-ink);border-color:var(--inv)}
+.chips button .n{opacity:.6;font-variant-numeric:tabular-nums}
+.dd{--c:var(--none);width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block;flex:none}
+.d-vegan{--c:var(--vegan)}.d-veggie{--c:var(--veggie)}.d-fish{--c:var(--fish)}.d-poultry{--c:var(--poultry)}.d-meat{--c:var(--meat)}.d-none{--c:var(--none)}
+.chip{--c:var(--none);display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:2px 9px 2px 7px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent);white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.tag{display:inline-flex;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+input[type=text],input[type=search],input[type=number],select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 11px;min-width:0}
+textarea{resize:vertical;min-height:120px;line-height:1.5}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.banner{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.banner p{margin:0;flex:1 1 220px}
+.banner.warn{border-color:var(--danger)}
+.banner.strong{background:var(--inv);color:var(--inv-ink);border-color:var(--inv)}
+.banner.strong .btn{background:transparent;color:var(--inv-ink);border-color:color-mix(in srgb,var(--inv-ink) 35%,transparent)}
+.empty{text-align:center;padding:30px 16px;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;border-radius:8px;padding:6px 11px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.stepper button{border:0;background:var(--surface-2);width:36px;height:36px;font-size:18px;font-weight:700}
+.stepper output{min-width:46px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ---------- Woche ---------- */
+.summary{padding:14px;display:grid;gap:12px}
+.stats{display:flex;gap:18px;flex-wrap:wrap}
+.stat b{font-family:var(--font-display);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;display:block;line-height:1}
+.stat span{font-size:12px;color:var(--muted)}
+.dietbar{display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--surface-2);gap:2px}
+.dietbar i{display:block;background:var(--c)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.days{display:grid;gap:8px}
+@media (min-width:700px) and (max-width:1099px){.days{grid-template-columns:1fr 1fr}}
+.day{overflow:hidden;min-width:0}
+.day.is-today{border-color:var(--ink);border-width:2px}
+.day.is-past{opacity:.7}
+.day-head{display:flex;align-items:baseline;gap:8px;padding:9px 14px 2px}
+.day-head .wd{font-family:var(--font-display);font-size:19px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.day-head .dt{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{font-size:11px;font-weight:700;color:var(--bg);background:var(--ink);padding:1px 8px;border-radius:999px;margin-left:auto}
+.slot{padding:6px 10px 10px}
+.slot + .slot{border-top:1px dashed var(--line);padding-top:8px}
+.slot-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted);margin:0 4px 4px}
+.meal{display:flex;align-items:center;gap:8px;border-radius:11px;padding:4px 4px 4px 10px;border:1.5px solid transparent}
+.meal.has-cook{--c:var(--muted);border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.meal-main{flex:1;min-width:0;text-align:left;border:0;background:none;padding:5px 0;display:flex;flex-direction:column;gap:3px}
+.meal-name{font-weight:700;font-size:16px;line-height:1.25;overflow-wrap:anywhere}
+.meal-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cook{--c:var(--muted);border:1.5px solid var(--c);color:var(--ink);background:var(--surface);border-radius:999px;padding:4px 10px 4px 4px;font-size:12px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;flex:none}
+.cook .ini{width:22px;height:22px;border-radius:50%;background:var(--c);color:#0b0c10;display:grid;place-items:center;font-size:11px;font-weight:800}
+.cook.unset{border-style:dashed;color:var(--muted);padding-left:10px}
+.empty-slot{display:flex;gap:6px}
+.empty-slot .btn{flex:1;border-style:dashed;background:none;color:var(--muted)}
+.empty-slot .btn.dice{flex:none;width:42px;padding:0}
+.slot.picking .empty-slot .btn,.slot.picking .meal{border-color:var(--ink);border-style:solid;color:var(--ink);background:var(--surface-2)}
+
+/* ---------- Menüplan / Heatmap ---------- */
+.assign{position:sticky;top:0;z-index:2}
+.tools{display:grid;gap:10px}
+.tools-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.heat-legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.heat-legend .scale{width:120px;height:8px;border-radius:999px;background:linear-gradient(90deg,hsl(145 var(--heat-bs) var(--heat-bl)),hsl(100 var(--heat-bs) var(--heat-bl)),hsl(55 var(--heat-bs) var(--heat-bl)),hsl(0 var(--heat-bs) var(--heat-bl)))}
+.grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.mcard{--h:145;position:relative;text-align:left;border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:6px;min-width:0;min-height:76px;justify-content:space-between;
+  background:hsl(var(--h) var(--heat-s) var(--heat-l) / var(--heat-a));border:1.5px solid hsl(var(--h) var(--heat-bs) var(--heat-bl));color:var(--ink)}
+.mcard:hover{filter:brightness(1.04)}
+.mcard .mname{font-weight:700;font-size:14px;line-height:1.25;overflow-wrap:anywhere;padding-right:12px}
+.mcard .msub{display:flex;align-items:center;gap:6px;font-size:11.5px;color:color-mix(in srgb,var(--ink) 70%,transparent);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcard .cnt{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--ink)}
+.mcard .star{position:absolute;top:7px;right:8px;font-size:12px}
+.mcard.add{background:none;border-style:dashed;border-color:var(--line);color:var(--muted);align-items:center;justify-content:center;font-weight:600}
+.assigning .mcard:not(.add){box-shadow:0 0 0 0 transparent}
+.assigning .mcard:not(.add):hover{outline:2px solid var(--ink);outline-offset:1px}
+
+/* ---------- Einkauf ---------- */
+.group{overflow:hidden}
+.group h3{font-family:var(--font-body);font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:10px 14px 6px;font-weight:700;display:flex;justify-content:space-between}
+.item{display:flex;align-items:flex-start;gap:12px;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
+.item input{width:20px;height:20px;accent-color:var(--ink);margin:1px 0 0;flex:none}
+.item .txt{flex:1;min-width:0}
+.item .amt{font-weight:700;font-variant-numeric:tabular-nums;margin-right:4px}
+.item .src{display:block;font-size:12px;color:var(--muted)}
+.item.done .txt{text-decoration:line-through;color:var(--muted)}
+.item .del{border:0;background:none;color:var(--muted);padding:0 4px;font-size:20px;line-height:1}
+.add-row{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+
+/* ---------- Mehr ---------- */
+.panel{padding:16px;display:grid;gap:14px}
+.panel h2{font-size:22px;text-transform:uppercase;letter-spacing:.04em}
+.cook-edit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatches button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;background:var(--c)}
+.swatches button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg) inset}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.toggle input[type=checkbox]{width:22px;height:22px;accent-color:var(--ink);flex:none}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+.kv b{font-family:var(--font-display);font-size:18px;font-variant-numeric:tabular-nums;text-align:right}
+
+/* ---------- Sheet ---------- */
+.sheet{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55)}
+.sheet-panel{background:var(--bg);width:100%;max-width:640px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:0;
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:up .2s ease-out}
+@media (min-width:700px){.sheet{align-items:center}.sheet-panel{border-radius:20px;border-bottom:1px solid var(--line);max-height:88%}}
+@keyframes up{from{transform:translateY(24px);opacity:.5}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet-panel{animation:none}}
+.grip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:4px auto 10px}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.sheet-head h2{font-size:28px;text-transform:uppercase;letter-spacing:.03em;line-height:1.05}
+.x{border:0;background:var(--surface-2);width:36px;height:36px;border-radius:50%;flex:none;font-size:20px;line-height:1}
+.sheet-body{display:grid;gap:14px}
+.pick-list{display:grid;gap:6px}
+.pick{--h:145;display:flex;justify-content:space-between;align-items:center;gap:10px;border-radius:12px;padding:10px 12px;text-align:left;
+  background:hsl(var(--h) var(--heat-s) var(--heat-l) / var(--heat-a));border:1.5px solid hsl(var(--h) var(--heat-bs) var(--heat-bl));color:var(--ink)}
+.pick .nm{font-weight:700;overflow-wrap:anywhere}
+.pick .sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:color-mix(in srgb,var(--ink) 70%,transparent);margin-top:3px}
+.quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px}
+.ing-list{list-style:none;margin:0;padding:0}
+.ing-list li{display:flex;gap:10px;padding:8px 12px;border-top:1px solid var(--line)}
+.ing-list li:first-child{border-top:0}
+.ing-list .amt{min-width:76px;font-weight:700;font-variant-numeric:tabular-nums}
+.prep{white-space:pre-wrap;margin:0;line-height:1.6}
+.ing-rows{display:grid;gap:8px}
+.ing-row{display:grid;grid-template-columns:72px 84px minmax(0,1fr);gap:6px;padding:8px}
+.ing-row .cat{grid-column:1 / 3}
+.ing-row .rm{justify-self:end;border:0;background:none;color:var(--danger);font-weight:600;font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--inv);color:var(--inv-ink);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:70;max-width:calc(100% - 32px);text-align:center}
+@media (min-width:1100px){.toast{bottom:24px}}
+.spin{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body data-tab="woche">
+
+<div id="boot" class="spin" aria-label="Lädt"></div>
+
+<div id="login" class="wrap" hidden>
+  <div class="login-card">
+    <div class="login-week" aria-hidden="true">
+      <span style="--h:145">Mo</span><span style="--h:100">Di</span><span style="--h:60">Mi</span><span style="--h:145">Do</span><span style="--h:20">Fr</span><span style="--h:80">Sa</span><span style="--h:0">So</span>
+    </div>
+    <h1>Wochenplaner</h1>
+    <p>Gemeinsam planen, was diese Woche auf den Tisch kommt.</p>
+    <button class="btn primary block" data-act="login">Mit Google anmelden</button>
+    <button class="btn ghost block" data-act="demo">Ohne Anmeldung ansehen (Demo)</button>
+    <p class="login-err" id="loginErr" hidden></p>
+  </div>
+</div>
+
+<div id="shell" hidden>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand"><h1>Wochenplaner</h1><span class="v">2</span><button class="edit-info" id="editInfo" data-act="seen-edit" hidden></button></div>
+      <div class="weeknav">
+        <button data-act="week" data-d="-1" aria-label="Vorige Woche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button class="kw" data-act="week" data-d="0" id="kwLabel" title="Zur aktuellen Woche"></button>
+        <button data-act="week" data-d="1" aria-label="Nächste Woche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <button class="icon-btn gear only-desktop" data-tab="mehr" aria-label="Einstellungen &amp; Daten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    </div>
+  </header>
+  <div class="wrap"><div id="sysBanner" hidden></div></div>
+  <main class="wrap layout">
+    <section id="col-woche" class="col" aria-label="Woche"></section>
+    <section id="col-menu" class="col" aria-label="Menüplan"></section>
+    <section id="col-einkauf" class="col" aria-label="Einkauf"></section>
+    <section id="col-mehr" class="col" aria-label="Einstellungen"></section>
+  </main>
+  <nav class="tabs" aria-label="Bereiche"><div class="inner">
+    <button data-tab="woche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Woche</button>
+    <button data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>Menüplan</button>
+    <button data-tab="einkauf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h2l2 11h10l2-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg><span>Einkauf<span class="badge" id="shopBadge" hidden></span></span></button>
+    <button data-tab="mehr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Mehr</button>
+  </div></nav>
+</div>
+
+<div class="sheet" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true"><div class="grip"></div><div id="sheetBody"></div></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Wochenplaner v2
+   Daten liegen im selben Firebase-Projekt wie v1, aber in eigenen
+   Collections (v2_*). Die v1-Daten werden nur gelesen (Übernahme).
+   ===================================================================== */
+const FIREBASE_CONFIG={apiKey:"AIzaSyCdK5VgOqwS2qZCcL0dzjEX6l21YxTkDM8",authDomain:"wochenplan-957ec.firebaseapp.com",projectId:"wochenplan-957ec",storageBucket:"wochenplan-957ec.firebasestorage.app",messagingSenderId:"662198750456",appId:"1:662198750456:web:31d9a7f2f6e21efa7f7f0d"};
+const FB_VER='10.7.1';
+const COL={recipes:'v2_rezepte',plan:'v2_plan',shop:'v2_einkauf',haushalt:'v2_haushalt',meta:'v2_meta'};
+const DEMO_KEY='wp2-demo-data';
+
+const DIETS=[{id:'vegan',label:'Vegan'},{id:'veggie',label:'Vegetarisch'},{id:'fish',label:'Fisch'},{id:'poultry',label:'Geflügel'},{id:'meat',label:'Fleisch'}];
+const BASE_TAGS=['Schnell','Aufwändig','Meal-Prep','Ofengericht','Reis','Nudeln','Kartoffel','Suppe','Salat','Teiggericht','Brot','Milch','Low Carb','Für Gäste'];
+const CATS=['Obst & Gemüse','Kühlregal','Fleisch & Fisch','Brot & Backwaren','Vorrat','Gewürze & Öle','Tiefkühl','Getränke','Sonstiges'];
+const UNITS=['g','kg','ml','l','Stk','EL','TL','Bund','Dose','Pck','Zehe','Prise','Becher','Scheibe','Glas'];
+const SLOT_LABEL={mittag:'Mittag',abend:'Abend'};
+const WD=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const COLORS=['#60a5fa','#f472b6','#a78bfa','#fbbf24','#34d399','#fb923c'];
+const DEFAULT_SETTINGS={
+  cooks:[
+    {id:'hendrik',name:'Hendrik',color:'#60a5fa',emails:['junkerhendrik@googlemail.com','jhe3ho@bosch.com']},
+    {id:'julia',name:'Julia',color:'#f472b6',emails:['20jbard21@gmail.com']}],
+  servings:2, slots:['abend'], hideSmall:true
+};
+const CAT_GUESS=[
+  [/tiefkühl|\btk\b|erbsen/i,'Tiefkühl'],
+  [/hähnchen|huhn|hühner|rind|schwein|hack|speck|schinken|lachs|fisch|thunfisch|garnele|wurst|pute|kassler|salami|chorizo|filet/i,'Fleisch & Fisch'],
+  [/milch|sahne|butter|käse|joghurt|quark|\beier?\b|eier|feta|parmesan|mozzarella|schmand|crème|creme|tofu|spätzle|gnocchi|frischkäse|halloumi|teig/i,'Kühlregal'],
+  [/zwiebel|knoblauch|tomate|paprika|zucchini|möhre|karotte|kartoffel|spinat|salat|gurke|ingwer|limette|zitrone|apfel|brokkoli|lauch|petersilie|koriander|basilikum|schnittlauch|champignon|pilz|avocado|chili|süßkartoffel|aubergine|kohl|sellerie|banane|beere|rucola|frühlingszwiebel|kürbis|mais|bohnen grün/i,'Obst & Gemüse'],
+  [/brot|brötchen|tortilla|wrap|baguette|toast|fladen|pita/i,'Brot & Backwaren'],
+  [/salz|pfeffer|öl\b|olivenöl|essig|curry|kreuzkümmel|paprikapulver|zimt|kurkuma|garam|sojasauce|senf|oregano|thymian|gewürz|brühe|honig|sirup|ketchup|mayo/i,'Gewürze & Öle'],
+  [/nudel|spaghetti|penne|reis|linse|mehl|zucker|kichererbse|bohne|kokosmilch|passata|tomatenmark|couscous|bulgur|haferflocken|dose|lasagne|tortellini|mais/i,'Vorrat'],
+  [/wein|bier|saft|wasser/i,'Getränke'],
+];
+
+/* ---------- Hilfsfunktionen ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const fromIso=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+function monday(off=0){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7)+off*7);return d}
+function isoWeekMonday(y,w){const j4=new Date(y,0,4);const m=addDays(j4,-((j4.getDay()+6)%7));return addDays(m,(w-1)*7)}
+function kw(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dn+3);const f=new Date(Date.UTC(t.getUTCFullYear(),0,4));return 1+Math.round(((t-f)/864e5-3+((f.getUTCDay()+6)%7))/7)}
+const short=d=>d.getDate()+'.'+(d.getMonth()+1)+'.';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const clean=o=>JSON.parse(JSON.stringify(o));
+function fmt(n){if(!n)return '';const r=Math.round(n*100)/100;return String(r).replace('.',',')}
+function parseNum(v){const n=parseFloat(String(v??'').replace(',','.'));return isFinite(n)?n:0}
+function guessCat(name){for(const [re,c] of CAT_GUESS)if(re.test(name||''))return c;return 'Sonstiges'}
+function ago(dIso){
+  if(!dIso)return '';const days=Math.round((fromIso(iso(new Date()))-fromIso(dIso))/864e5);
+  if(days<=0)return 'heute';if(days===1)return 'gestern';if(days<7)return `vor ${days} Tagen`;
+  const w=Math.floor(days/7);if(w<9)return `vor ${w} Woche${w>1?'n':''}`;const m=Math.round(days/30.4);return `vor ${m} Monat${m>1?'en':''}`;
+}
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
+const pref={get(k,d){try{const v=localStorage.getItem('wp2-'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('wp2-'+k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- Zustand ---------- */
+const S={recipes:{},plan:{},shop:{},haushalt:{},settings:clean(DEFAULT_SETTINGS),lastEdit:null,migration:null};
+const UI={tab:pref.get('tab','woche'),weekOff:0,q:'',diet:'all',tags:[],sort:pref.get('sort','name'),heat:pref.get('heat','all'),
+  shopFilter:'all',hideDone:pref.get('hideDone',false),assign:null};
+let MODE=null, ME=null, FBX=null, BK=null;
+const loaded={};
+const wide=()=>matchMedia('(min-width:1100px)').matches;
+
+const cooks=()=>S.settings.cooks||[];
+const cookById=id=>cooks().find(c=>c.id===id);
+const recipe=id=>S.recipes[id];
+const dietOf=id=>DIETS.find(d=>d.id===id);
+const dietCls=id=>dietOf(id)?'d-'+id:'d-none';
+const dietLabel=id=>dietOf(id)?.label||'Ohne Angabe';
+function cookFor(email){if(!email)return null;email=email.toLowerCase();return cooks().find(c=>(c.emails||[]).some(e=>e.toLowerCase()===email))||null}
+function nameFor(email){return cookFor(email)?.name||(email?email.split('@')[0]:'Jemand')}
+function cookView(id){if(id==='both')return {name:'Zusammen',color:'var(--ink)',ini:'2'};const c=cookById(id);return c?{name:c.name,color:c.color,ini:c.name.slice(0,1).toUpperCase()}:null}
+const weekDays=(off=UI.weekOff)=>{const m=monday(off);return [0,1,2,3,4,5,6].map(i=>addDays(m,i))};
+const weekKey=()=>iso(monday(UI.weekOff));
+function weekEntries(off=UI.weekOff){const out=[];for(const d of weekDays(off)){const day=S.plan[iso(d)]||{};for(const s of S.settings.slots){if(day[s])out.push({date:iso(d),slot:s,...day[s]})}}return out}
+function allTags(){const set=new Set(BASE_TAGS);Object.values(S.recipes).forEach(r=>(r.tags||[]).forEach(t=>set.add(t)));return [...set]}
+
+/* ---------- Heatmap ---------- */
+function heatData(){
+  const today=iso(new Date()),from=UI.heat==='12w'?iso(addDays(new Date(),-84)):'';
+  const count={},last={};
+  for(const [d,day] of Object.entries(S.plan)){
+    for(const e of Object.values(day||{})){
+      if(!e||!e.recipeId)continue;
+      if(d>=from)count[e.recipeId]=(count[e.recipeId]||0)+1;
+      if(d<=today&&(!last[e.recipeId]||d>last[e.recipeId]))last[e.recipeId]=d;
+    }
+  }
+  const vals=Object.keys(S.recipes).map(id=>count[id]||0);
+  return {count,last,min:vals.length?Math.min(...vals):0,max:vals.length?Math.max(...vals):0};
+}
+function hue(c,H){if(!c)return 145;if(H.max===H.min)return 55;return Math.round(100-((c-H.min)/(H.max-H.min))*100)}
+function sortRecipes(list,H){
+  const s=UI.sort;
+  return list.sort((a,b)=>{
+    if(s==='selten')return (H.count[a.id]||0)-(H.count[b.id]||0)||a.name.localeCompare(b.name);
+    if(s==='oft')return (H.count[b.id]||0)-(H.count[a.id]||0)||a.name.localeCompare(b.name);
+    if(s==='lange')return (H.last[a.id]||'').localeCompare(H.last[b.id]||'')||a.name.localeCompare(b.name);
+    return a.name.localeCompare(b.name,'de');
+  });
+}
+function matchRecipe(r,q,diet,tags){
+  if(diet==='fav'&&!r.fav)return false;
+  if(diet==='none'&&dietOf(r.diet))return false;
+  if(diet!=='all'&&diet!=='fav'&&diet!=='none'&&r.diet!==diet)return false;
+  if(tags.length&&!tags.every(t=>(r.tags||[]).includes(t)))return false;
+  if(q){const hay=(r.name+' '+(r.tags||[]).join(' ')+' '+(r.ingredients||[]).map(i=>i.name).join(' ')).toLowerCase();if(!hay.includes(q.toLowerCase()))return false}
+  return true;
+}
+
+/* ---------- Speichern (lokal sofort, dann Backend) ---------- */
+const LocalBK={
+  label:'demo',
+  async set(){this.save()},async del(){this.save()},
+  save(){try{localStorage.setItem(DEMO_KEY,JSON.stringify({recipes:S.recipes,plan:S.plan,shop:S.shop,haushalt:S.haushalt,settings:S.settings}))}catch(e){}}
+};
+const FireBK={
+  label:'cloud',
+  set(col,id,data,merge){const {F,db}=FBX;const ref=F.doc(db,col,id);return merge?F.setDoc(ref,clean(data),{merge:true}):F.setDoc(ref,clean(data))},
+  del(col,id){const {F,db}=FBX;return F.deleteDoc(F.doc(db,col,id))}
+};
+let touchT=null;
+function commit(p){
+  render();
+  Promise.resolve(p).then(()=>{
+    if(MODE!=='cloud')return;
+    clearTimeout(touchT);touchT=setTimeout(()=>{FireBK.set(COL.meta,'lastEdit',{email:ME.email,at:Date.now()}).catch(()=>{})},800);
+  }).catch(e=>{console.error(e);toast(e.code==='permission-denied'?'Keine Schreibrechte – Firestore-Regeln prüfen':'Speichern fehlgeschlagen: '+(e.message||e))});
+}
+const Store={
+  saveRecipe(r){r.updatedAt=Date.now();S.recipes[r.id]=r;commit(BK.set(COL.recipes,r.id,r))},
+  deleteRecipe(id){
+    delete S.recipes[id];
+    const ps=[BK.del(COL.recipes,id)];
+    for(const [d,day] of Object.entries(S.plan)){let ch=false;for(const s in day)if(day[s]&&day[s].recipeId===id){delete day[s];ch=true}
+      if(ch){if(Object.keys(day).length){ps.push(BK.set(COL.plan,d,day))}else{delete S.plan[d];ps.push(BK.del(COL.plan,d))}}}
+    commit(Promise.all(ps));
+  },
+  setSlot(date,slot,val){
+    const day={...(S.plan[date]||{})};
+    if(val)day[slot]=val;else delete day[slot];
+    if(Object.keys(day).length){S.plan[date]=day;commit(BK.set(COL.plan,date,day))}
+    else{delete S.plan[date];commit(BK.del(COL.plan,date))}
+  },
+  shopCheck(week,key,val){const w=S.shop[week]=S.shop[week]||{};w.checked={...(w.checked||{}),[key]:val};commit(BK.set(COL.shop,week,{checked:{[key]:val}},true))},
+  addHaushalt(name){const id=uid();S.haushalt[id]={id,name,createdAt:Date.now()};commit(BK.set(COL.haushalt,id,{name,createdAt:Date.now()}))},
+  delHaushalt(id){delete S.haushalt[id];commit(BK.del(COL.haushalt,id))},
+  saveSettings(){commit(BK.set(COL.meta,'settings',S.settings))},
+};
+
+/* ---------- Rendering ---------- */
+function render(){
+  if(!MODE)return;
+  const ae=document.activeElement,aid=ae&&ae.id,sel=ae&&typeof ae.selectionStart==='number'?ae.selectionStart:null;
+  document.body.dataset.tab=UI.tab;
+  const days=weekDays();
+  $('#kwLabel').innerHTML=`<b>KW ${kw(days[0])}</b><span>${short(days[0])} – ${short(days[6])}</span>`;
+  document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.dataset.tab===UI.tab?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
+  renderEditInfo();
+  $('#col-woche').innerHTML=renderWeek();
+  $('#col-menu').innerHTML=renderMenu();
+  $('#col-menu').classList.toggle('assigning',!!UI.assign);
+  $('#col-einkauf').innerHTML=renderShop();
+  if(UI.tab==='mehr')$('#col-mehr').innerHTML=renderMore();
+  const open=countOpen();$('#shopBadge').hidden=!open;$('#shopBadge').textContent=open;
+  if(aid){const el=document.getElementById(aid);if(el&&el!==ae){el.focus({preventScroll:true});if(sel!=null)try{el.setSelectionRange(sel,sel)}catch(e){}}}
+}
+
+function renderEditInfo(){
+  const b=$('#editInfo'),le=S.lastEdit;
+  if(!le||MODE!=='cloud'){b.hidden=true;return}
+  const mine=ME&&le.email&&le.email.toLowerCase()===ME.email.toLowerCase();
+  const d=new Date(le.at),day=['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];
+  const fresh=!mine&&Date.now()-le.at<864e5&&le.at>pref.get('seenEdit',0);
+  b.hidden=false;
+  b.innerHTML=`${fresh?'<span class="dot"></span>':''}Zuletzt: ${esc(nameFor(le.email))}, ${day} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/* ----- Woche ----- */
+function renderWeek(){
+  const days=weekDays(),today=iso(new Date()),E=weekEntries();
+  const total=days.length*S.settings.slots.length;
+  const byCook={},byDiet={};
+  E.forEach(e=>{byCook[e.cookId||'']=(byCook[e.cookId||'']||0)+1;const r=recipe(e.recipeId);const k=r?(dietOf(r.diet)?r.diet:'none'):'free';byDiet[k]=(byDiet[k]||0)+1});
+  const withRec=E.filter(e=>recipe(e.recipeId)),meatless=withRec.filter(e=>['vegan','veggie'].includes(recipe(e.recipeId).diet)).length;
+  const dl=[...DIETS,{id:'none',label:'Ohne Angabe'},{id:'free',label:'Ohne Rezept'}];
+  let h=`<div class="col-head"><h2>Woche</h2></div>`;
+  if(MODE==='demo')h+=`<div class="banner"><p><b>Demo.</b> Beispieldaten, nur in diesem Browser. Für eure echten Daten mit Google anmelden.</p><button class="btn sm" data-act="logout">Zur Anmeldung</button></div>`;
+  h+=`<section class="card summary" aria-label="Überblick">
+    <div class="stats">
+      <div class="stat"><b>${E.length}/${total}</b><span>geplant</span></div>
+      ${cooks().map(c=>`<div class="stat"><b style="color:${c.color}">${byCook[c.id]||0}</b><span>${esc(c.name)}</span></div>`).join('')}
+      <div class="stat"><b>${byCook.both||0}</b><span>zusammen</span></div>
+      <div class="stat"><b>${withRec.length?Math.round(meatless/withRec.length*100):0}%</b><span>fleischlos</span></div>
+    </div>
+    ${E.length?`<div class="dietbar">${dl.map(d=>byDiet[d.id]?`<i class="d-${d.id==='free'?'none':d.id}" style="flex:${byDiet[d.id]}"></i>`:'').join('')}</div>
+    <div class="legend">${dl.filter(d=>byDiet[d.id]).map(d=>`<span><i class="dd d-${d.id==='free'?'none':d.id}"></i>${d.label} ${byDiet[d.id]}</span>`).join('')}</div>`:''}
+  </section><div class="days">`;
+  days.forEach((d,i)=>{
+    const di=iso(d),isT=di===today,past=di<today;
+    h+=`<article class="card day${isT?' is-today':''}${past?' is-past':''}"><div class="day-head"><span class="wd">${WD[i]}</span><span class="dt">${short(d)}</span>${isT?'<span class="pill">Heute</span>':''}</div>`;
+    for(const s of S.settings.slots){
+      const e=(S.plan[di]||{})[s],picking=UI.assign&&UI.assign.date===di&&UI.assign.slot===s;
+      h+=`<div class="slot${picking?' picking':''}">${S.settings.slots.length>1?`<div class="slot-label">${SLOT_LABEL[s]}</div>`:''}`;
+      if(e){
+        const r=recipe(e.recipeId),cv=cookView(e.cookId);
+        const name=r?r.name:(e.text||'Gelöschtes Gericht');
+        const meta=r?`<span class="chip ${dietCls(r.diet)}">${dietLabel(r.diet)}</span>${r.time?`<span>${r.time} Min</span>`:''}${(e.servings||2)!==S.settings.servings?`<span>${e.servings} Port.</span>`:''}`:'<span>ohne Rezept</span>';
+        h+=`<div class="meal${cv?' has-cook':''}" ${cv?`style="--c:${cv.color}"`:''}>
+          <button class="meal-main" data-act="edit-slot" data-date="${di}" data-slot="${s}"><span class="meal-name">${esc(name)}</span><span class="meal-meta">${meta}</span></button>
+          <button class="cook${cv?'':' unset'}" style="--c:${cv?cv.color:'var(--muted)'}" data-act="cycle-cook" data-date="${di}" data-slot="${s}" title="Tippen: Koch wechseln">${cv?`<span class="ini">${esc(cv.ini)}</span>${esc(cv.name)}`:'Wer kocht?'}</button></div>`;
+      }else{
+        h+=`<div class="empty-slot"><button class="btn sm" data-act="pick" data-date="${di}" data-slot="${s}">${picking?'Gericht rechts wählen …':'+ Gericht wählen'}</button>
+          <button class="btn sm dice" data-act="suggest" data-date="${di}" data-slot="${s}" title="Vorschlag: lange nicht gekocht" aria-label="Vorschlag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/></svg></button></div>`;
+      }
+      h+='</div>';
+    }
+    h+='</article>';
+  });
+  return h+'</div>';
+}
+
+/* ----- Menüplan ----- */
+function renderMenu(){
+  const H=heatData(),all=Object.values(S.recipes);
+  const list=sortRecipes(all.filter(r=>matchRecipe(r,UI.q,UI.diet,UI.tags)),H);
+  const noDiet=all.filter(r=>!dietOf(r.diet)).length;
+  let h=`<div class="col-head"><h2>Menüplan<small>${all.length}</small></h2><button class="btn sm primary" data-act="new-recipe">+ Gericht</button></div>`;
+  if(UI.assign){const d=fromIso(UI.assign.date);h+=`<div class="banner strong assign"><p>Gericht für <b>${WD[(d.getDay()+6)%7]}, ${short(d)}</b> antippen</p><button class="btn sm" data-act="cancel-assign">Abbrechen</button></div>`}
+  h+=`<div class="tools">
+    <input type="search" id="mq" data-input="q" placeholder="Gericht, Zutat oder Etikett suchen …" value="${esc(UI.q)}" aria-label="Suchen">
+    <div class="chips" role="group" aria-label="Ernährung">
+      ${[['all','Alle',all.length],['fav','★ Favoriten',all.filter(r=>r.fav).length],...DIETS.map(d=>[d.id,d.label,all.filter(r=>r.diet===d.id).length])].map(([v,l,n])=>`<button data-act="diet" data-v="${v}" aria-pressed="${UI.diet===v}">${v!=='all'&&v!=='fav'?`<i class="dd d-${v}"></i>`:''}${l} <span class="n">${n}</span></button>`).join('')}
+      ${noDiet?`<button data-act="diet" data-v="none" aria-pressed="${UI.diet==='none'}"><i class="dd d-none"></i>Ohne Angabe <span class="n">${noDiet}</span></button>`:''}
+    </div>
+    <div class="chips" role="group" aria-label="Etiketten">${allTags().map(t=>`<button data-act="tag" data-v="${esc(t)}" aria-pressed="${UI.tags.includes(t)}">${esc(t)}</button>`).join('')}</div>
+    <div class="tools-row">
+      <div class="heat-legend"><span>neu</span><span class="scale"></span><span>oft</span>
+        <div class="seg" role="group" aria-label="Zeitraum"><button data-act="heat" data-v="all" aria-pressed="${UI.heat==='all'}">Gesamt</button><button data-act="heat" data-v="12w" aria-pressed="${UI.heat==='12w'}">12 Wochen</button></div></div>
+      <select id="sortSel" data-change="sort" aria-label="Sortierung" style="width:auto">
+        ${[['name','A–Z'],['selten','Selten zuerst'],['oft','Oft zuerst'],['lange','Lange nicht gekocht']].map(([v,l])=>`<option value="${v}" ${UI.sort===v?'selected':''}>${l}</option>`).join('')}
+      </select>
+    </div></div>`;
+  if(!list.length)h+=`<div class="empty">${all.length?'Kein Gericht passt zu Suche und Filter.':'Noch keine Gerichte. Leg mit „+ Gericht“ das erste an'+(MODE==='cloud'?' oder übernimm unter „Mehr“ die Daten aus Version 1.':'.')}</div>`;
+  else h+=`<div class="grid">${list.map(r=>mcard(r,H)).join('')}<button class="mcard add" data-act="new-recipe">+ Gericht</button></div>`;
+  return h;
+}
+function heatLine(id,H){const c=H.count[id]||0,l=H.last[id];return `${c?`<span class="cnt">${c}×</span>`:'<span>neu</span>'}${l?`<span>· ${ago(l)}</span>`:''}`}
+function mcard(r,H){
+  return `<button class="mcard" style="--h:${hue(H.count[r.id]||0,H)}" data-act="open-recipe" data-id="${esc(r.id)}" title="${esc(dietLabel(r.diet))}">
+    ${r.fav?'<span class="star" aria-label="Favorit">★</span>':''}
+    <span class="mname">${esc(r.name)}</span>
+    <span class="msub"><i class="dd ${dietCls(r.diet)}"></i>${heatLine(r.id,H)}</span></button>`;
+}
+
+/* ----- Einkauf ----- */
+function shoppingItems(){
+  const f=UI.shopFilter,map={};
+  for(const e of weekEntries()){
+    const r=recipe(e.recipeId);if(!r)continue;
+    if(f!=='all'&&e.cookId!==f)continue;
+    const factor=(e.servings||r.servings||2)/(r.servings||2);
+    for(const i of r.ingredients||[]){
+      let unit=(i.unit||'').trim(),amt=(i.amount||0)*factor;
+      const u=unit.toLowerCase();
+      if(S.settings.hideSmall&&((u==='g'&&i.amount>0&&i.amount<=2)||u==='prise'))continue;
+      if(u==='kg'){unit='g';amt*=1000}if(u==='l'){unit='ml';amt*=1000}
+      const base=i.name.trim().toLowerCase()+'|'+unit.toLowerCase();
+      const k=f==='all'?base:r.id+'|'+base;
+      if(!map[k])map[k]={key:k,name:i.name.trim(),unit,amount:0,cat:i.cat||guessCat(i.name),src:new Set(),recipe:r};
+      map[k].amount+=amt;map[k].src.add(r.name);
+    }
+  }
+  return Object.values(map).map(x=>{if(x.unit==='g'&&x.amount>=1000){x.unit='kg';x.amount/=1000}if(x.unit==='ml'&&x.amount>=1000){x.unit='l';x.amount/=1000}return x});
+}
+function countOpen(){const ch=(S.shop[weekKey()]||{}).checked||{};const f=UI.shopFilter;UI.shopFilter='all';const n=shoppingItems().filter(i=>!ch[i.key]).length;UI.shopFilter=f;return n+Object.keys(S.haushalt).length}
+function renderShop(){
+  const wk=weekKey(),items=shoppingItems(),checked=(S.shop[wk]||{}).checked||{};
+  const hh=Object.values(S.haushalt).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const open=items.filter(i=>!checked[i.key]).length;
+  let h=`<div class="col-head"><h2>Einkauf<small>KW ${kw(monday(UI.weekOff))}</small></h2>
+    <div class="row"><button class="btn sm" data-act="shop-hide">${UI.hideDone?'Erledigte zeigen':'Erledigte ausblenden'}</button><button class="btn sm primary" data-act="shop-copy">Kopieren</button></div></div>
+  <div class="seg" role="group" aria-label="Liste für">${[['all','Alle'],...cooks().map(c=>[c.id,c.name])].map(([v,l])=>`<button data-act="shop-filter" data-v="${v}" aria-pressed="${UI.shopFilter===v}">${esc(l)}</button>`).join('')}</div>
+  <p class="hint">${open} offen${UI.shopFilter!=='all'?' · nur Gerichte, die '+esc(cookById(UI.shopFilter)?.name||'')+' kocht':''}${S.settings.hideSmall?' · Kleinstmengen (≤ 2 g, Prise) ausgeblendet':''}</p>`;
+  h+=`<section class="card group"><h3><span>Haushalt &amp; Vorrat</span><span>${hh.length}</span></h3>
+    ${hh.map(x=>`<div class="item"><span class="txt">${esc(x.name)}</span><button class="del" data-act="hh-del" data-id="${esc(x.id)}" aria-label="${esc(x.name)} erledigt">×</button></div>`).join('')}
+    <div class="add-row"><input type="text" id="hhIn" placeholder="z. B. Spülmaschinentabs" aria-label="Haushaltsartikel"><button class="btn" data-act="hh-add">+</button></div></section>`;
+  if(!items.length){h+=`<div class="empty">Für diese Woche gibt es noch nichts zu kaufen. Plant Gerichte mit Zutaten ein, dann erscheinen sie hier.</div>`;return h}
+  const row=i=>checked[i.key]&&UI.hideDone?'':`<label class="item${checked[i.key]?' done':''}"><input type="checkbox" data-change="check" data-key="${esc(i.key)}" ${checked[i.key]?'checked':''}><span class="txt"><span class="amt">${fmt(i.amount)} ${esc(i.unit)}</span>${esc(i.name)}${UI.shopFilter==='all'?`<span class="src">${esc([...i.src].join(', '))}</span>`:''}</span></label>`;
+  if(UI.shopFilter==='all'){
+    for(const c of CATS){const g=items.filter(i=>i.cat===c).sort((a,b)=>a.name.localeCompare(b.name,'de'));if(!g.length)continue;
+      const html=g.map(row).join('');if(!html)continue;h+=`<section class="card group"><h3><span>${c}</span><span>${g.filter(i=>!checked[i.key]).length}</span></h3>${html}</section>`}
+  }else{
+    const byR={};items.forEach(i=>(byR[i.recipe.name]=byR[i.recipe.name]||[]).push(i));
+    for(const n of Object.keys(byR).sort()){const html=byR[n].sort((a,b)=>a.cat.localeCompare(b.cat)).map(row).join('');if(html)h+=`<section class="card group"><h3><span>${esc(n)}</span></h3>${html}</section>`}
+  }
+  return h;
+}
+function shopText(){
+  const wk=weekKey(),ch=(S.shop[wk]||{}).checked||{},items=shoppingItems().filter(i=>!ch[i.key]);
+  const who=UI.shopFilter==='all'?'':` (${cookById(UI.shopFilter)?.name||''})`;
+  let t=`Einkaufsliste KW ${kw(monday(UI.weekOff))}${who}\n`;
+  const line=i=>`- ${fmt(i.amount)} ${i.unit} ${i.name}`.replace(/\s+/g,' ').replace('- ','- ').trim();
+  if(UI.shopFilter==='all'){for(const c of CATS){const g=items.filter(i=>i.cat===c);if(g.length)t+=`\n${c}\n`+g.map(line).join('\n')+'\n'}}
+  else{const byR={};items.forEach(i=>(byR[i.recipe.name]=byR[i.recipe.name]||[]).push(i));for(const n in byR)t+=`\n${n}\n`+byR[n].map(line).join('\n')+'\n'}
+  const hh=Object.values(S.haushalt);if(hh.length)t+='\nHaushalt\n'+hh.map(x=>'- '+x.name).join('\n');
+  return t.trim();
+}
+
+/* ----- Mehr ----- */
+function renderMore(){
+  const th=pref.get('theme','system');
+  let h=`<div class="col-head"><h2>Mehr</h2><button class="btn sm only-desktop" data-tab="woche">Zurück zur Woche</button></div>
+  <section class="card panel"><h2>Konto</h2>
+    ${MODE==='cloud'?`<p class="hint">Angemeldet als <b>${esc(ME.email)}</b>${cookFor(ME.email)?` (${esc(cookFor(ME.email).name)})`:''}. Änderungen sind sofort bei allen sichtbar.</p>`:`<p class="hint">Demo-Modus: Daten liegen nur in diesem Browser.</p>`}
+    <div class="row"><button class="btn" data-act="logout">${MODE==='cloud'?'Abmelden':'Zur Anmeldung'}</button>${MODE==='demo'?'<button class="btn danger" data-act="demo-reset">Demo zurücksetzen</button>':''}</div></section>
+  <section class="card panel"><h2>Wer kocht</h2>
+    ${cooks().map((c,i)=>`<div class="field"><div class="cook-edit"><input type="text" id="cn${i}" data-change="cook-name" data-i="${i}" value="${esc(c.name)}" aria-label="Name"><div class="swatches">${COLORS.map(col=>`<button style="--c:${col}" data-act="cook-color" data-i="${i}" data-v="${col}" aria-pressed="${c.color===col}" aria-label="Farbe ${col}"></button>`).join('')}</div></div>
+      <span class="hint">${(c.emails||[]).map(esc).join(', ')||'keine E-Mail hinterlegt'}</span></div>`).join('')}
+  </section>
+  <section class="card panel"><h2>Planung</h2>
+    <label class="toggle"><span>Auch Mittagessen planen</span><input type="checkbox" data-change="lunch" ${S.settings.slots.includes('mittag')?'checked':''}></label>
+    <label class="toggle"><span>Kleinstmengen nicht auf die Einkaufsliste (≤ 2 g, Prise)</span><input type="checkbox" data-change="hide-small" ${S.settings.hideSmall?'checked':''}></label>
+    <div class="toggle"><span>Portionen pro Mahlzeit</span><div class="stepper"><button data-act="serv" data-d="-1" aria-label="Weniger">−</button><output>${S.settings.servings}</output><button data-act="serv" data-d="1" aria-label="Mehr">+</button></div></div>
+    <div class="toggle"><span>Darstellung</span><div class="seg">${[['system','System'],['light','Hell'],['dark','Dunkel']].map(([v,l])=>`<button data-act="theme" data-v="${v}" aria-pressed="${th===v}">${l}</button>`).join('')}</div></div>
+  </section>`;
+  if(MODE==='cloud'){
+    const m=S.migration;
+    h+=`<section class="card panel"><h2>Daten aus Version 1</h2>
+      <p class="hint">Liest Gerichte, Rezepte, Wochenplan und Verbrauchsstoffe aus der alten App und kopiert sie in Version 2. Die alten Daten bleiben unverändert, die alte App läuft normal weiter. Du kannst die Übernahme jederzeit wiederholen, um neue Einträge nachzuholen.</p>
+      ${m?`<p class="hint">Zuletzt übernommen: ${new Date(m.at).toLocaleString('de-DE')} von ${esc(nameFor(m.by))} – ${m.stats.recipes} Gerichte, ${m.stats.days} Tage.</p>`:''}
+      <div id="migBox"><button class="btn primary" data-act="mig-preview">Vorschau laden</button></div></section>`;
+  }else{
+    h+=`<section class="card panel"><h2>Daten</h2><p class="hint">Die Übernahme der Daten aus Version 1 ist nach der Google-Anmeldung verfügbar.</p></section>`;
+  }
+  return h;
+}
+
+/* ---------- Sheets ---------- */
+function openSheet(html,mount){$('#sheetBody').innerHTML=html;$('#sheet').hidden=false;document.body.classList.add('locked');$('.sheet-panel').scrollTop=0;mount&&mount($('#sheetBody'))}
+function closeSheet(){$('#sheet').hidden=true;document.body.classList.remove('locked')}
+const head=(eyebrow,title)=>`<div class="sheet-head"><div>${eyebrow?`<div class="label">${eyebrow}</div>`:''}<h2>${title}</h2></div><button class="x" data-act="close" aria-label="Schließen">×</button></div>`;
+const dayLabel=(date,slot)=>{const d=fromIso(date);return `${WD[(d.getDay()+6)%7]}, ${short(d)}${S.settings.slots.length>1?' · '+SLOT_LABEL[slot]:''}`};
+
+function nextCook(){const cnt={};cooks().forEach(c=>cnt[c.id]=0);weekEntries().forEach(e=>{if(cnt[e.cookId]!=null)cnt[e.cookId]++});return cooks().slice().sort((a,b)=>cnt[a.id]-cnt[b.id])[0]?.id||''}
+function assignTo(date,slot,rid,text){
+  const prev=(S.plan[date]||{})[slot];
+  Store.setSlot(date,slot,{...(rid?{recipeId:rid}:{text}),cookId:prev?prev.cookId||'':nextCook(),servings:prev?.servings||S.settings.servings});
+  UI.assign=null;render();toast(rid?'Eingeplant: '+recipe(rid).name:'Eingetragen');
+}
+
+function openPicker(date,slot){
+  let q='',f='all';
+  const draw=()=>{
+    const H=heatData(),used=new Set(weekEntries().map(e=>e.recipeId));
+    const list=sortRecipes(Object.values(S.recipes).filter(r=>matchRecipe(r,q,f,[])),H);
+    $('#pickList').innerHTML=list.length?list.map(r=>`<button class="pick" style="--h:${hue(H.count[r.id]||0,H)}" data-pick="${esc(r.id)}"><div><div class="nm">${r.fav?'★ ':''}${esc(r.name)}</div><div class="sub"><i class="dd ${dietCls(r.diet)}"></i>${heatLine(r.id,H)}${used.has(r.id)?'<span>· schon diese Woche</span>':''}</div></div><span aria-hidden="true">›</span></button>`).join(''):`<div class="empty">Kein Gericht passt.</div>`;
+    $('#pickFilter').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===f));
+    $('#pickSort').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===UI.sort));
+  };
+  openSheet(head(dayLabel(date,slot),'Was gibt’s?')+`<div class="sheet-body">
+    <input type="search" id="pickQ" placeholder="Gericht suchen …" aria-label="Suchen">
+    <div class="chips" id="pickFilter"><button data-f="all">Alle</button><button data-f="fav">★ Favoriten</button>${DIETS.map(x=>`<button data-f="${x.id}"><i class="dd d-${x.id}"></i>${x.label}</button>`).join('')}</div>
+    <div class="seg" id="pickSort"><button data-s="name">A–Z</button><button data-s="selten">Selten</button><button data-s="lange">Lange nicht</button><button data-s="oft">Oft</button></div>
+    <div class="pick-list" id="pickList"></div>
+    <span class="label">Ohne Rezept</span>
+    <div class="quick">${['Reste','Essen gehen','Lieferdienst','Bei Freunden'].map(t=>`<button class="btn sm" data-text="${t}">${t}</button>`).join('')}</div>
+    <div class="row" style="flex-wrap:nowrap"><input type="text" id="freeText" placeholder="Freitext, z. B. Pizza vom Italiener"><button class="btn" id="freeAdd">OK</button></div>
+  </div>`,el=>{
+    el.querySelector('#pickQ').oninput=e=>{q=e.target.value;draw()};
+    el.querySelector('#pickFilter').onclick=e=>{const b=e.target.closest('button');if(b){f=b.dataset.f;draw()}};
+    el.querySelector('#pickSort').onclick=e=>{const b=e.target.closest('button');if(b){UI.sort=b.dataset.s;pref.set('sort',UI.sort);draw();render()}};
+    el.querySelector('#pickList').onclick=e=>{const b=e.target.closest('[data-pick]');if(b){closeSheet();assignTo(date,slot,b.dataset.pick)}};
+    el.querySelectorAll('[data-text]').forEach(b=>b.onclick=()=>{closeSheet();assignTo(date,slot,null,b.dataset.text)});
+    const free=()=>{const t=el.querySelector('#freeText').value.trim();if(t){closeSheet();assignTo(date,slot,null,t)}};
+    el.querySelector('#freeAdd').onclick=free;el.querySelector('#freeText').onkeydown=e=>{if(e.key==='Enter')free()};
+    draw();
+  });
+}
+function startPick(date,slot){if(wide()){UI.assign={date,slot};render();$('#col-menu').scrollTop=0}else openPicker(date,slot)}
+
+function suggest(date,slot){
+  const H=heatData(),used=new Set(weekEntries().map(e=>e.recipeId));
+  const prev=(S.plan[iso(addDays(fromIso(date),-1))]||{})[slot],prevDiet=prev&&recipe(prev.recipeId)?.diet;
+  let pool=Object.values(S.recipes).filter(r=>!used.has(r.id)&&(!prevDiet||r.diet!==prevDiet));
+  if(!pool.length)pool=Object.values(S.recipes).filter(r=>!used.has(r.id));
+  if(!pool.length){toast('Keine passenden Gerichte');return}
+  pool.sort((a,b)=>(H.count[a.id]||0)-(H.count[b.id]||0)||(H.last[a.id]||'').localeCompare(H.last[b.id]||''));
+  const top=pool.slice(0,Math.min(6,pool.length)),r=top[Math.floor(Math.random()*top.length)];
+  assignTo(date,slot,r.id);
+}
+
+function editSlot(date,slot){
+  const e=(S.plan[date]||{})[slot];if(!e)return;const r=recipe(e.recipeId);
+  const opts=[...cooks().map(c=>({id:c.id,name:c.name})),{id:'both',name:'Zusammen'},{id:'',name:'Offen'}];
+  openSheet(head(dayLabel(date,slot),esc(r?r.name:e.text||'Gelöschtes Gericht'))+`<div class="sheet-body">
+    <div class="field"><span class="label">Wer kocht?</span><div class="seg" id="cookSeg">${opts.map(o=>`<button data-c="${o.id}" aria-pressed="${(e.cookId||'')===o.id}">${esc(o.name)}</button>`).join('')}</div></div>
+    ${r?`<div class="field"><span class="label">Portionen</span><div><div class="stepper"><button data-s="-1" aria-label="Weniger">−</button><output id="servOut">${e.servings||S.settings.servings}</output><button data-s="1" aria-label="Mehr">+</button></div></div><p class="hint">Die Einkaufsliste rechnet die Mengen entsprechend um.</p></div>`:''}
+    <div class="row">${r?`<button class="btn" data-act="open-recipe" data-id="${esc(r.id)}">Rezept ansehen</button>`:''}<button class="btn" id="swap">Anderes Gericht</button><button class="btn danger" id="rm">Entfernen</button></div>
+  </div>`,el=>{
+    el.querySelector('#cookSeg').onclick=ev=>{const b=ev.target.closest('button');if(!b)return;Store.setSlot(date,slot,{...e,cookId:b.dataset.c});e.cookId=b.dataset.c;el.querySelectorAll('#cookSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
+    el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{e.servings=Math.max(1,(e.servings||S.settings.servings)+ +b.dataset.s);el.querySelector('#servOut').textContent=e.servings;Store.setSlot(date,slot,{...e})});
+    el.querySelector('#swap').onclick=()=>{closeSheet();startPick(date,slot)};
+    el.querySelector('#rm').onclick=()=>{closeSheet();Store.setSlot(date,slot,null)};
+  });
+}
+
+function openRecipe(id){
+  const r=recipe(id);if(!r)return;const H=heatData();let serv=r.servings||2;
+  const ings=()=>(r.ingredients||[]).length?r.ingredients.map(i=>`<li><span class="amt">${fmt((i.amount||0)*serv/(r.servings||2))} ${esc(i.unit)}</span><span>${esc(i.name)}</span></li>`).join(''):'<li class="muted">Noch keine Zutaten eingetragen.</li>';
+  const c=H.count[id]||0;
+  openSheet(head(`<span class="row" style="gap:6px"><span class="chip ${dietCls(r.diet)}">${dietLabel(r.diet)}</span>${(r.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</span>`,esc(r.name))+`<div class="sheet-body">
+    <p class="hint">${c?`${c}× geplant`:'Noch nie geplant'}${H.last[id]?` · zuletzt ${ago(H.last[id])}`:''}${r.time?` · ${r.time} Minuten`:''}</p>
+    <div class="row"><button class="btn primary" id="plan">Einplanen</button><button class="btn" id="fav">${r.fav?'★ Favorit':'☆ Favorit'}</button><button class="btn" data-act="edit-recipe" data-id="${esc(r.id)}">Bearbeiten</button></div>
+    <div id="planBox" hidden></div>
+    <div class="row" style="justify-content:space-between"><span class="label">Zutaten</span><div class="stepper"><button data-s="-1" aria-label="Weniger">−</button><output id="rs">${serv} P.</output><button data-s="1" aria-label="Mehr">+</button></div></div>
+    <ul class="card ing-list" id="ings">${ings()}</ul>
+    ${r.prep?`<span class="label">Zubereitung</span><p class="prep">${esc(r.prep)}</p>`:''}
+    ${r.notes?`<span class="label">Notizen</span><p style="margin:0">${esc(r.notes)}</p>`:''}
+    ${/^https?:\/\//.test(r.source||'')?`<a href="${esc(r.source)}" target="_blank" rel="noopener">Originalrezept öffnen ↗</a>`:''}
+    <button class="btn ghost danger" id="del" style="justify-self:start">Gericht löschen</button>
+    <div id="delBox" hidden class="banner warn"><p>„${esc(r.name)}“ löschen? Es verschwindet auch aus allen Wochen.</p><div class="row"><button class="btn sm" id="delNo">Abbrechen</button><button class="btn sm danger" id="delYes">Endgültig löschen</button></div></div>
+  </div>`,el=>{
+    el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{serv=Math.max(1,serv+ +b.dataset.s);el.querySelector('#rs').textContent=serv+' P.';el.querySelector('#ings').innerHTML=ings()});
+    el.querySelector('#fav').onclick=e=>{Store.saveRecipe({...r,fav:!r.fav});r.fav=!r.fav;e.target.textContent=r.fav?'★ Favorit':'☆ Favorit'};
+    el.querySelector('#del').onclick=()=>el.querySelector('#delBox').hidden=false;
+    el.querySelector('#delNo').onclick=()=>el.querySelector('#delBox').hidden=true;
+    el.querySelector('#delYes').onclick=()=>{Store.deleteRecipe(id);closeSheet();toast('Gericht gelöscht')};
+    el.querySelector('#plan').onclick=()=>{
+      const box=el.querySelector('#planBox');box.hidden=false;
+      const slots=[];weekDays().forEach((d,i)=>S.settings.slots.forEach(s=>{const f=!!(S.plan[iso(d)]||{})[s];slots.push({d:iso(d),s,f,l:WD[i].slice(0,2)+' '+short(d)+(S.settings.slots.length>1?' '+SLOT_LABEL[s]:'')})}));
+      box.innerHTML=`<div class="field"><span class="label">KW ${kw(monday(UI.weekOff))} – freie Tage</span>${slots.some(x=>!x.f)?`<div class="chips wrapy">${slots.filter(x=>!x.f).map(x=>`<button data-d="${x.d}" data-sl="${x.s}">${x.l}</button>`).join('')}</div>`:'<p class="hint">Diese Woche ist voll. Wechsle oben die Woche.</p>'}</div>`;
+      box.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{closeSheet();assignTo(b.dataset.d,b.dataset.sl,id)});
+    };
+  });
+}
+
+function ingRow(i){
+  i=i||{amount:'',unit:'g',name:'',cat:''};
+  return `<div class="card ing-row"><input type="text" inputmode="decimal" class="a" placeholder="Menge" value="${i.amount?fmt(i.amount):''}" aria-label="Menge">
+  <input type="text" class="u" list="unitList" placeholder="Einh." value="${esc(i.unit)}" aria-label="Einheit">
+  <input type="text" class="n" placeholder="Zutat" value="${esc(i.name)}" aria-label="Zutat">
+  <select class="cat" aria-label="Kategorie" ${i.cat?'data-set="1"':''}>${CATS.map(c=>`<option ${c===(i.cat||'Sonstiges')?'selected':''}>${c}</option>`).join('')}</select>
+  <button type="button" class="rm">Entfernen</button></div>`;
+}
+function editRecipe(id){
+  const r=id?clean(recipe(id)):{id:null,name:'',diet:'',tags:[],fav:false,time:null,servings:S.settings.servings,ingredients:[],prep:'',notes:'',source:''};
+  let diet=r.diet||'',tags=new Set(r.tags||[]);
+  const tagBtns=()=>[...new Set([...allTags(),...tags])].map(t=>`<button type="button" data-x="${esc(t)}" aria-pressed="${tags.has(t)}">${esc(t)}</button>`).join('');
+  openSheet(head('',id?'Gericht bearbeiten':'Neues Gericht')+`<form class="sheet-body" id="recForm">
+    <datalist id="unitList">${UNITS.map(u=>`<option value="${u}">`).join('')}</datalist>
+    <label class="field"><span class="label">Name</span><input type="text" id="fName" required value="${esc(r.name)}" placeholder="z. B. Ofengemüse mit Halloumi"></label>
+    <div class="field"><span class="label">Ernährung</span><div class="chips wrapy" id="fDiet">${[...DIETS,{id:'',label:'Ohne Angabe'}].map(d=>`<button type="button" data-d="${d.id}" aria-pressed="${d.id===diet}"><i class="dd ${dietCls(d.id)}"></i>${d.label}</button>`).join('')}</div></div>
+    <div class="field"><span class="label">Etiketten</span><div class="chips wrapy" id="fTags">${tagBtns()}</div>
+      <div class="row" style="flex-wrap:nowrap"><input type="text" id="fNewTag" placeholder="Eigenes Etikett"><button type="button" class="btn sm" id="addTag">+</button></div></div>
+    <div class="grid2"><label class="field"><span class="label">Zeit (Minuten)</span><input type="number" id="fTime" min="1" inputmode="numeric" value="${r.time||''}"></label><label class="field"><span class="label">Rezept für Portionen</span><input type="number" id="fServ" min="1" inputmode="numeric" value="${r.servings||2}"></label></div>
+    <div class="field"><span class="label">Zutaten</span><div class="ing-rows" id="fIngs">${(r.ingredients.length?r.ingredients:[null,null,null]).map(ingRow).join('')}</div><button type="button" class="btn sm" id="addIng" style="justify-self:start">+ Zutat</button></div>
+    <label class="field"><span class="label">Zubereitung</span><textarea id="fPrep" placeholder="Schritt für Schritt …">${esc(r.prep)}</textarea></label>
+    <label class="field"><span class="label">Notizen</span><input type="text" id="fNotes" value="${esc(r.notes)}"></label>
+    <label class="field"><span class="label">Link zum Original</span><input type="text" id="fSrc" value="${esc(r.source)}" placeholder="https://…"></label>
+    <div class="row"><button class="btn primary" type="submit">Speichern</button><button class="btn" type="button" data-act="close">Abbrechen</button></div>
+  </form>`,el=>{
+    el.querySelector('#fDiet').onclick=e=>{const b=e.target.closest('button');if(!b)return;diet=b.dataset.d;el.querySelectorAll('#fDiet button').forEach(x=>x.setAttribute('aria-pressed',x===b))};
+    const tg=el.querySelector('#fTags');
+    tg.onclick=e=>{const b=e.target.closest('button');if(!b)return;const x=b.dataset.x;tags.has(x)?tags.delete(x):tags.add(x);b.setAttribute('aria-pressed',tags.has(x))};
+    const addTag=()=>{const v=el.querySelector('#fNewTag').value.trim();if(!v)return;tags.add(v);tg.innerHTML=tagBtns();el.querySelector('#fNewTag').value=''};
+    el.querySelector('#addTag').onclick=addTag;el.querySelector('#fNewTag').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addTag()}};
+    const box=el.querySelector('#fIngs');
+    el.querySelector('#addIng').onclick=()=>{box.insertAdjacentHTML('beforeend',ingRow());box.lastElementChild.querySelector('.a').focus()};
+    box.addEventListener('click',e=>{if(e.target.classList.contains('rm'))e.target.closest('.ing-row').remove()});
+    box.addEventListener('change',e=>{if(e.target.classList.contains('cat'))e.target.dataset.set='1'});
+    box.addEventListener('input',e=>{if(e.target.classList.contains('n')){const c=e.target.closest('.ing-row').querySelector('.cat');if(!c.dataset.set)c.value=guessCat(e.target.value)}});
+    el.querySelector('#recForm').onsubmit=e=>{
+      e.preventDefault();
+      const name=el.querySelector('#fName').value.trim();if(!name)return;
+      const ingredients=[...box.querySelectorAll('.ing-row')].map(row=>({amount:parseNum(row.querySelector('.a').value),unit:row.querySelector('.u').value.trim(),name:row.querySelector('.n').value.trim(),cat:row.querySelector('.cat').value})).filter(i=>i.name);
+      const out={...r,id:r.id||'r_'+uid(),name,diet,tags:[...tags],time:parseInt(el.querySelector('#fTime').value)||null,servings:parseInt(el.querySelector('#fServ').value)||2,
+        ingredients,prep:el.querySelector('#fPrep').value.trim(),notes:el.querySelector('#fNotes').value.trim(),source:el.querySelector('#fSrc').value.trim()};
+      if(!out.createdAt)out.createdAt=Date.now();
+      Store.saveRecipe(out);toast('Gespeichert');
+      if(UI.assign&&!id){const a=UI.assign;closeSheet();assignTo(a.date,a.slot,out.id)}else openRecipe(out.id);
+    };
+  });
+}
+
+/* ---------- Übernahme aus Version 1 ---------- */
+const V1_TAGS={schnell:'Schnell','aufwändig':'Aufwändig',Reis:'Reis',Nudeln:'Nudeln',Kartoffel:'Kartoffel',Milch:'Milch',Salat:'Salat',Teiggericht:'Teiggericht',Suppe:'Suppe',Brot:'Brot'};
+const V1_DAYS=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const V1_PLACEHOLDER='Arbeitszeit: XX min | Schwierigkeit: ★☆☆';
+function convertV1(L){
+  const recipes={},nameIdx={},stats={recipes:0,withIngr:0,noDiet:0,days:0,textDays:0,skipped:0,haushalt:0,unparsed:[]};
+  for(const it of L.speisekammer){
+    const name=String(it.name||'').trim();if(!name||name==='---')continue;
+    const t=Array.isArray(it.tags)?it.tags:[];
+    const diet=t.includes('Fleisch')?'meat':t.includes('Fisch')?'fish':t.includes('vegetarisch')?'veggie':'';
+    const rz=L.rezepte[it.id]||{};
+    let prep=String(rz.zubereitung||'').trim();
+    const tm=prep.match(/Arbeitszeit:\s*(\d+)/i);
+    if(prep===V1_PLACEHOLDER)prep='';
+    const ingredients=(Array.isArray(rz.zutaten)?rz.zutaten:[]).filter(z=>z&&String(z.name||'').trim()).map(z=>({amount:parseNum(z.menge),unit:String(z.einheit||'').trim(),name:String(z.name).trim(),cat:guessCat(String(z.name))}));
+    recipes[it.id]={id:it.id,name,diet,tags:t.filter(x=>V1_TAGS[x]).map(x=>V1_TAGS[x]),fav:t.includes('Favorit'),time:tm?parseInt(tm[1]):null,servings:2,ingredients,prep,notes:'',source:'',v1:true,createdAt:Date.now()};
+    nameIdx[name.toLowerCase()]=it.id;
+    stats.recipes++;if(ingredients.length)stats.withIngr++;if(!diet)stats.noDiet++;
+  }
+  const days={};
+  for(const [k,v] of Object.entries(L.plan||{})){
+    const m=k.match(/^(\d{4})-KW(\d{1,2})-(.+)$/);
+    if(!m){stats.unparsed.push(k);continue}
+    const di=V1_DAYS.indexOf(m[3]);if(di<0){stats.unparsed.push(k);continue}
+    const date=iso(addDays(isoWeekMonday(+m[1],+m[2]),di));
+    const o=(v&&typeof v==='object')?v:{meal:v};
+    const meal=String(o.meal||'').trim();
+    let rid=o.mealId&&recipes[o.mealId]?o.mealId:nameIdx[meal.toLowerCase()];
+    const cookId=o.chef==='J'?'julia':o.chef==='H'?'hendrik':'';
+    if(!rid&&(!meal||meal==='---')){stats.skipped++;continue}
+    days[date]={abend:rid?{recipeId:rid,cookId,servings:2}:{text:meal,cookId,servings:2}};
+    stats.days++;if(!rid)stats.textDays++;
+  }
+  const haushalt={};
+  for(const x of L.verbrauch){if(x.name){haushalt[x.id]={name:String(x.name),createdAt:x.createdAt||Date.now()};stats.haushalt++}}
+  return {recipes,days,haushalt,stats};
+}
+async function readV1(){
+  const {F,db}=FBX;
+  const [sk,rz,pl,vb]=await Promise.all([F.getDocs(F.collection(db,'speisekammer')),F.getDocs(F.collection(db,'rezepte')),F.getDoc(F.doc(db,'planung','wochenplan2026')),F.getDocs(F.collection(db,'verbrauchsstoffe'))]);
+  const L={speisekammer:[],rezepte:{},plan:pl.exists()?pl.data():{},verbrauch:[]};
+  sk.forEach(d=>L.speisekammer.push({id:d.id,...d.data()}));
+  rz.forEach(d=>L.rezepte[d.id]=d.data());
+  vb.forEach(d=>L.verbrauch.push({id:d.id,...d.data()}));
+  return L;
+}
+let MIG=null;
+async function migPreview(){
+  const box=$('#migBox');box.innerHTML='<div class="spin" style="margin:10px 0"></div>';
+  try{MIG=convertV1(await readV1())}catch(e){box.innerHTML=`<p class="login-err">Lesen fehlgeschlagen: ${esc(e.code||e.message)}</p><button class="btn" data-act="mig-preview">Nochmal</button>`;return}
+  const st=MIG.stats,exR=Object.keys(MIG.recipes).filter(id=>S.recipes[id]).length,exD=Object.keys(MIG.days).filter(d=>S.plan[d]).length;
+  box.innerHTML=`<div class="kv">
+      <span>Gerichte</span><b>${st.recipes}</b>
+      <span>davon mit Zutaten</span><b>${st.withIngr}</b>
+      <span>ohne Ernährungsangabe</span><b>${st.noDiet}</b>
+      <span>geplante Tage</span><b>${st.days}</b>
+      <span>davon ohne passendes Gericht</span><b>${st.textDays}</b>
+      <span>Verbrauchsstoffe</span><b>${st.haushalt}</b>
+    </div>
+    ${st.unparsed.length?`<p class="hint">${st.unparsed.length} Einträge mit unbekanntem Format werden übersprungen.</p>`:''}
+    ${exR||exD?`<label class="toggle"><span>Was in Version 2 schon existiert behalten (${exR} Gerichte, ${exD} Tage)</span><input type="checkbox" id="migKeep" checked></label>`:''}
+    <div class="row"><button class="btn primary" data-act="mig-run">Jetzt übernehmen</button><button class="btn" data-act="mig-preview">Neu laden</button></div>`;
+}
+async function migRun(){
+  if(!MIG)return;
+  const keep=$('#migKeep')?$('#migKeep').checked:false,{F,db}=FBX,ops=[];
+  for(const [id,r] of Object.entries(MIG.recipes))if(!(keep&&S.recipes[id]))ops.push([COL.recipes,id,r]);
+  for(const [d,v] of Object.entries(MIG.days))if(!(keep&&S.plan[d]))ops.push([COL.plan,d,v]);
+  for(const [id,x] of Object.entries(MIG.haushalt))if(!(keep&&S.haushalt[id]))ops.push([COL.haushalt,id,x]);
+  const box=$('#migBox');box.innerHTML=`<p class="hint">Schreibe ${ops.length} Einträge …</p>`;
+  try{
+    for(let i=0;i<ops.length;i+=400){const b=F.writeBatch(db);ops.slice(i,i+400).forEach(([c,id,d])=>b.set(F.doc(db,c,id),clean(d)));await b.commit()}
+    const meta={at:Date.now(),by:ME.email,stats:{recipes:MIG.stats.recipes,days:MIG.stats.days,written:ops.length}};
+    await F.setDoc(F.doc(db,COL.meta,'migration'),meta);
+    box.innerHTML=`<p class="hint">Fertig: ${ops.length} Einträge übernommen.${MIG.stats.noDiet?` ${MIG.stats.noDiet} Gerichte haben noch keine Ernährungsangabe – im Menüplan unter „Ohne Angabe“ findest du sie.`:''}</p>`;
+    toast('Daten übernommen');
+  }catch(e){console.error(e);box.innerHTML=`<p class="login-err">Fehler: ${esc(e.code||e.message)}${e.code==='permission-denied'?' – die Firestore-Regeln erlauben die v2-Collections noch nicht.':''}</p>`}
+}
+
+/* ---------- Demo-Daten ---------- */
+function demoSeed(){
+  const R=(id,name,diet,tags,time,ings,prep)=>({id,name,diet,tags,fav:false,time,servings:2,prep,notes:'',source:'',ingredients:ings.map(([a,u,n])=>({amount:a,unit:u,name:n,cat:guessCat(n)}))});
+  const rs=[
+    R('d1','Rotes Linsen-Dal','vegan',['Schnell','Reis'],30,[[200,'g','Rote Linsen'],[400,'ml','Kokosmilch'],[1,'Stk','Zwiebel'],[2,'Zehe','Knoblauch'],[1,'Dose','Gehackte Tomaten'],[2,'TL','Garam Masala'],[150,'g','Basmatireis'],[100,'g','Babyspinat']],'Zwiebel, Knoblauch anschwitzen.\nGewürze mitrösten, Linsen, Tomaten und Kokosmilch dazu.\n20 Minuten köcheln, Spinat unterheben.'),
+    R('d2','Ofenlachs mit Zitronengemüse','fish',['Ofengericht','Low Carb'],35,[[2,'Stk','Lachsfilet'],[1,'Stk','Zucchini'],[1,'Stk','Paprika rot'],[250,'g','Kirschtomaten'],[1,'Stk','Zitrone'],[2,'EL','Olivenöl']],'Ofen auf 200 °C.\nGemüse aufs Blech, nach 10 Minuten Lachs dazu, 15 Minuten garen.'),
+    R('d3','Käsespätzle','veggie',['Teiggericht','Milch'],40,[[500,'g','Spätzle'],[200,'g','Bergkäse'],[3,'Stk','Zwiebel'],[30,'g','Butter']],'Zwiebeln goldbraun braten.\nSpätzle und Käse schichten, kurz in den Ofen.'),
+    R('d4','Kichererbsen-Curry','vegan',['Reis','Meal-Prep'],35,[[1,'Dose','Kichererbsen'],[1,'Stk','Süßkartoffel'],[1,'Stk','Brokkoli'],[400,'ml','Kokosmilch'],[2,'EL','Currypaste'],[150,'g','Basmatireis']],''),
+    R('d5','Hähnchen-Fajitas','poultry',['Schnell','Brot'],25,[[300,'g','Hähnchenbrust'],[2,'Stk','Paprika'],[1,'Stk','Zwiebel'],[6,'Stk','Tortillas'],[150,'g','Schmand'],[1,'Stk','Avocado']],''),
+    R('d6','Shakshuka','veggie',['Schnell'],25,[[4,'Stk','Eier'],[1,'Dose','Gehackte Tomaten'],[1,'Stk','Paprika rot'],[100,'g','Feta'],[1,'Stk','Baguette'],[1,'g','Kreuzkümmel']],''),
+    R('d7','Spaghetti Bolognese','meat',['Nudeln','Meal-Prep'],60,[[250,'g','Rinderhack'],[250,'g','Spaghetti'],[1,'Stk','Möhre'],[500,'ml','Passata'],[50,'g','Parmesan']],''),
+    R('d8','Kartoffelsuppe','veggie',['Suppe','Kartoffel'],45,[[800,'g','Kartoffeln'],[2,'Stk','Möhre'],[1,'Stk','Lauch'],[1,'l','Gemüsebrühe'],[100,'ml','Sahne']],''),
+    R('d9','Flammkuchen','meat',['Teiggericht','Ofengericht'],30,[[1,'Pck','Flammkuchenteig'],[200,'g','Schmand'],[125,'g','Speckwürfel'],[2,'Stk','Zwiebel']],''),
+    R('d10','Griechischer Salat','veggie',['Salat','Schnell'],15,[[1,'Stk','Gurke'],[300,'g','Tomaten'],[200,'g','Feta'],[1,'Stk','Rote Zwiebel']],''),
+    R('d11','Gemüse-Lasagne','veggie',['Nudeln','Ofengericht','Aufwändig'],80,[[250,'g','Lasagneplatten'],[2,'Stk','Zucchini'],[500,'ml','Passata'],[200,'g','Mozzarella']],''),
+    R('d12','Thai-Nudeln mit Tofu','vegan',['Nudeln','Schnell'],25,[[250,'g','Reisnudeln'],[200,'g','Tofu'],[1,'Stk','Paprika'],[3,'EL','Sojasauce']],''),
+  ];
+  rs[0].fav=true;rs[6].fav=true;
+  const recipes={};rs.forEach(r=>recipes[r.id]=r);
+  const plan={};let seed=7;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;
+  const weights=[5,1,3,4,2,3,6,1,2,1,0,0];
+  const bag=[];weights.forEach((w,i)=>{for(let k=0;k<w;k++)bag.push(rs[i].id)});
+  const m=monday(0);
+  for(let d=-70;d<7;d++){if(d>=0&&d%3===2)continue;if(rnd()<.2)continue;const date=iso(addDays(m,d));
+    plan[date]={abend:{recipeId:bag[Math.floor(rnd()*bag.length)],cookId:rnd()<.45?'hendrik':rnd()<.85?'julia':'both',servings:2}}}
+  plan[iso(addDays(m,4))]={abend:{text:'Essen gehen',cookId:'',servings:2}};
+  const now=Date.now();
+  return {recipes,plan,shop:{},haushalt:{h1:{id:'h1',name:'Spülmaschinentabs',createdAt:now},h2:{id:'h2',name:'Küchenrolle',createdAt:now+1}},settings:clean(DEFAULT_SETTINGS)};
+}
+
+/* ---------- Start & Anmeldung ---------- */
+function show(which){$('#boot').hidden=true;$('#login').hidden=which!=='login';$('#shell').hidden=which!=='app'}
+function startDemo(){
+  MODE='demo';BK=LocalBK;ME={email:'demo',name:'Demo'};
+  let d=null;try{d=JSON.parse(localStorage.getItem(DEMO_KEY))}catch(e){}
+  if(!d||!d.recipes)d=demoSeed();
+  Object.assign(S,{recipes:d.recipes,plan:d.plan,shop:d.shop||{},haushalt:d.haushalt||{},settings:{...clean(DEFAULT_SETTINGS),...d.settings}});
+  LocalBK.save();show('app');render();
+}
+async function loadFirebase(){
+  const base=`https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const [A,F,U]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-firestore.js'),import(base+'firebase-auth.js')]);
+  const app=A.initializeApp(FIREBASE_CONFIG);
+  let db;try{db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}catch(e){db=F.getFirestore(app)}
+  FBX={A,F,U,app,db,auth:U.getAuth(app),unsub:[]};
+}
+function listenCloud(){
+  const {F,db}=FBX,u=FBX.unsub;
+  const fail=e=>{console.error(e);const b=$('#sysBanner');b.hidden=false;
+    b.innerHTML=e.code==='permission-denied'?`<div class="banner warn"><p><b>Kein Zugriff auf die Daten von Version 2.</b> Die Firestore-Regeln müssen die Collections <code>v2_*</code> für euch freigeben.</p></div>`:`<div class="banner warn"><p>Verbindung gestört: ${esc(e.message)}</p></div>`};
+  const coll=(name,fn)=>u.push(F.onSnapshot(F.collection(db,name),s=>{fn(s);loaded[name]=true;render()},fail));
+  coll(COL.recipes,s=>{S.recipes={};s.forEach(d=>S.recipes[d.id]={...d.data(),id:d.id})});
+  coll(COL.plan,s=>{S.plan={};s.forEach(d=>S.plan[d.id]=d.data())});
+  coll(COL.shop,s=>{S.shop={};s.forEach(d=>S.shop[d.id]=d.data())});
+  coll(COL.haushalt,s=>{S.haushalt={};s.forEach(d=>S.haushalt[d.id]={...d.data(),id:d.id})});
+  u.push(F.onSnapshot(F.collection(db,COL.meta),s=>{s.forEach(d=>{const x=d.data();
+    if(d.id==='settings')S.settings={...clean(DEFAULT_SETTINGS),...x};
+    if(d.id==='lastEdit')S.lastEdit=x;
+    if(d.id==='migration')S.migration=x;});render()},fail));
+}
+async function login(){
+  const {U,auth}=FBX,p=new U.GoogleAuthProvider();
+  try{await U.signInWithPopup(auth,p)}
+  catch(e){
+    if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'].includes(e.code)){await U.signInWithRedirect(auth,p);return}
+    if(e.code!=='auth/popup-closed-by-user'){const el=$('#loginErr');el.hidden=false;el.textContent='Anmeldung fehlgeschlagen: '+(e.code||e.message)}
+  }
+}
+async function logout(){
+  if(MODE==='cloud'){await FBX.U.signOut(FBX.auth);return}
+  MODE=null;if(FBX)show('login');else{show('login');$('#loginErr').hidden=false;$('#loginErr').textContent='Google-Anmeldung funktioniert nur in der veröffentlichten App (GitHub Pages).'}
+}
+async function boot(){
+  applyTheme();
+  try{await loadFirebase()}catch(e){console.warn('Firebase nicht erreichbar – Demo-Modus',e);startDemo();return}
+  FBX.U.onAuthStateChanged(FBX.auth,user=>{
+    FBX.unsub.forEach(f=>f());FBX.unsub=[];
+    if(user){MODE='cloud';BK=FireBK;ME={email:user.email,name:user.displayName};
+      Object.assign(S,{recipes:{},plan:{},shop:{},haushalt:{},settings:clean(DEFAULT_SETTINGS),lastEdit:null});
+      show('app');listenCloud();render();}
+    else if(MODE!=='demo'){MODE=null;show('login')}
+  });
+}
+function applyTheme(){
+  const t=pref.get('theme','system');
+  if(t==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=t;
+  const dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
+  $('#themeColor').setAttribute('content',dark?'#000000':'#eceef2');
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);
+
+/* ---------- Ereignisse ---------- */
+document.addEventListener('click',e=>{
+  if(e.target.id==='sheet'){closeSheet();return}
+  const t=e.target.closest('button[data-tab]');
+  if(t){UI.tab=t.dataset.tab;pref.set('tab',UI.tab);UI.assign=null;render();window.scrollTo(0,0);return}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const {act,date,slot,id,v}=a.dataset;
+  switch(act){
+    case 'close':closeSheet();break;
+    case 'login':login();break;
+    case 'demo':startDemo();break;
+    case 'logout':logout();break;
+    case 'demo-reset':try{localStorage.removeItem(DEMO_KEY)}catch(_){}startDemo();toast('Demo zurückgesetzt');break;
+    case 'week':UI.weekOff=a.dataset.d==='0'?0:UI.weekOff+ +a.dataset.d;UI.assign=null;render();break;
+    case 'pick':startPick(date,slot);break;
+    case 'cancel-assign':UI.assign=null;render();break;
+    case 'suggest':suggest(date,slot);break;
+    case 'edit-slot':editSlot(date,slot);break;
+    case 'cycle-cook':{const e2=(S.plan[date]||{})[slot];if(!e2)break;const order=[...cooks().map(c=>c.id),'both',''];Store.setSlot(date,slot,{...e2,cookId:order[(order.indexOf(e2.cookId||'')+1)%order.length]});break}
+    case 'open-recipe':if(UI.assign){assignTo(UI.assign.date,UI.assign.slot,id)}else openRecipe(id);break;
+    case 'new-recipe':editRecipe(null);break;
+    case 'edit-recipe':editRecipe(id);break;
+    case 'diet':UI.diet=UI.diet===v&&v!=='all'?'all':v;render();break;
+    case 'tag':UI.tags=UI.tags.includes(v)?UI.tags.filter(x=>x!==v):[...UI.tags,v];render();break;
+    case 'heat':UI.heat=v;pref.set('heat',v);render();break;
+    case 'shop-filter':UI.shopFilter=v;render();break;
+    case 'shop-hide':UI.hideDone=!UI.hideDone;pref.set('hideDone',UI.hideDone);render();break;
+    case 'shop-copy':copy(shopText(),'Einkaufsliste kopiert');break;
+    case 'hh-add':{const i=$('#hhIn');const n=i.value.trim();if(n){Store.addHaushalt(n);setTimeout(()=>$('#hhIn')&&$('#hhIn').focus(),0)}break}
+    case 'hh-del':Store.delHaushalt(id);break;
+    case 'seen-edit':pref.set('seenEdit',Date.now());render();break;
+    case 'cook-color':S.settings.cooks[+a.dataset.i].color=v;Store.saveSettings();break;
+    case 'serv':S.settings.servings=Math.max(1,S.settings.servings+ +a.dataset.d);Store.saveSettings();break;
+    case 'theme':pref.set('theme',v);applyTheme();render();break;
+    case 'mig-preview':migPreview();break;
+    case 'mig-run':migRun();break;
+  }
+});
+document.addEventListener('input',e=>{const k=e.target.dataset.input;if(k==='q'){UI.q=e.target.value;render()}});
+document.addEventListener('change',e=>{
+  const k=e.target.dataset.change;if(!k)return;
+  if(k==='sort'){UI.sort=e.target.value;pref.set('sort',UI.sort);render()}
+  if(k==='check')Store.shopCheck(weekKey(),e.target.dataset.key,e.target.checked);
+  if(k==='cook-name'){S.settings.cooks[+e.target.dataset.i].name=e.target.value.trim()||'Ohne Namen';Store.saveSettings()}
+  if(k==='lunch'){S.settings.slots=e.target.checked?['mittag','abend']:['abend'];Store.saveSettings()}
+  if(k==='hide-small'){S.settings.hideSmall=e.target.checked;Store.saveSettings()}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(!$('#sheet').hidden)closeSheet();else if(UI.assign){UI.assign=null;render()}}
+  if(e.key==='Enter'&&e.target.id==='hhIn'){const n=e.target.value.trim();if(n){Store.addHaushalt(n);setTimeout(()=>$('#hhIn')&&$('#hhIn').focus(),0)}}
+});
+function copy(t,msg){
+  const fb=()=>openSheet(head('','Zum Kopieren markieren')+`<textarea style="min-height:260px" readonly>${esc(t)}</textarea>`,el=>{const ta=el.querySelector('textarea');ta.focus();ta.select()});
+  try{navigator.clipboard.writeText(t).then(()=>toast(msg),fb)}catch(e){fb()}
+}
+
+if('serviceWorker' in navigator&&/github\.io$|localhost/.test(location.hostname)){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+boot();
+</script>
+</body>
+</html>
