@@ -176,6 +176,8 @@ textarea{resize:vertical;min-height:120px;line-height:1.5}
 .banner.strong .btn{background:transparent;color:var(--inv-ink);border-color:color-mix(in srgb,var(--inv-ink) 35%,transparent)}
 .empty{text-align:center;padding:30px 16px;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
 .seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg-full{display:flex;width:100%}
+.seg-full button{flex:1;white-space:nowrap;padding-inline:4px}
 .seg button{border:0;background:none;border-radius:8px;padding:6px 11px;font-size:13px;font-weight:600;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--seg-on);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
@@ -386,15 +388,15 @@ const FB_VER='10.7.1';
 const COL={recipes:'v2_rezepte',plan:'v2_plan',shop:'v2_einkauf',haushalt:'v2_haushalt',meta:'v2_meta'};
 const DEMO_KEY='wp2-demo-data';
 
-const DIETS=[{id:'vegan',label:'Vegan'},{id:'veggie',label:'Vegetarisch'},{id:'fish',label:'Fisch'},{id:'poultry',label:'Geflügel'},{id:'meat',label:'Fleisch'}];
+const DIETS=[{id:'vegan',label:'Vegan'},{id:'veggie',label:'Vegetarisch'},{id:'fish',label:'Fisch'},{id:'meat',label:'Fleisch'}];
 const BASE_TAGS=['Schnell','Aufwändig','Reis','Nudeln','Kartoffel','Milch','Salat','Teiggericht','Suppe','Brot'];
 const EXTRA_TAGS=['Meal-Prep','Ofengericht','Low Carb','Für Gäste'];
 /* Emojis wie in Version 1 (Fisch/Fleisch/vegetarisch sind in v2 die Ernährungsform) */
 const TAG_ICON={'Schnell':'⚡','Aufwändig':'🕰️','Reis':'🍚','Nudeln':'🍝','Kartoffel':'🥔','Milch':'🥛','Salat':'🥗','Teiggericht':'🌾','Suppe':'🍲','Brot':'🍞','Meal-Prep':'📦','Ofengericht':'🔥','Low Carb':'🥑','Für Gäste':'👥'};
-const DIET_ICON={vegan:'🌱',veggie:'🥕',fish:'🐟',poultry:'🍗',meat:'🥩','':'❔',none:'❔'};
+const DIET_ICON={vegan:'🌱',veggie:'🥕',fish:'🐟',meat:'🥩','':'❔',none:'❔'};
 const tagIcon=t=>TAG_ICON[t]||t.slice(0,2);
 /* Reihenfolge der Filter exakt wie in Version 1, danach die neuen Einträge */
-const FILTER_ORDER=[['tag','Schnell'],['tag','Aufwändig'],['tag','Reis'],['tag','Nudeln'],['diet','fish'],['diet','meat'],['tag','Kartoffel'],['tag','Milch'],['tag','Salat'],['tag','Teiggericht'],['tag','Suppe'],['diet','veggie'],['tag','Brot'],['diet','fav'],['diet','vegan'],['diet','poultry']];
+const FILTER_ORDER=[['tag','Schnell'],['tag','Aufwändig'],['tag','Reis'],['tag','Nudeln'],['diet','fish'],['diet','meat'],['tag','Kartoffel'],['tag','Milch'],['tag','Salat'],['tag','Teiggericht'],['tag','Suppe'],['diet','veggie'],['tag','Brot'],['diet','fav'],['diet','vegan']];
 const CATS=['Obst & Gemüse','Kühlregal','Fleisch & Fisch','Brot & Backwaren','Vorrat','Gewürze & Öle','Tiefkühl','Getränke','Sonstiges'];
 const UNITS=['g','kg','ml','l','Stk','EL','TL','Bund','Dose','Pck','Zehe','Prise','Becher','Scheibe','Glas'];
 const SLOT_LABEL={mittag:'Mittag',abend:'Abend'};
@@ -452,8 +454,9 @@ const wide=()=>matchMedia('(min-width:1100px)').matches;
 const cooks=()=>S.settings.cooks||[];
 const cookById=id=>cooks().find(c=>c.id===id);
 const recipe=id=>S.recipes[id];
-const dietOf=id=>DIETS.find(d=>d.id===id);
-const dietCls=id=>dietOf(id)?'d-'+id:'d-none';
+const normDiet=d=>d==='poultry'?'meat':d;
+const dietOf=id=>DIETS.find(d=>d.id===normDiet(id));
+const dietCls=id=>dietOf(id)?'d-'+normDiet(id):'d-none';
 const dietLabel=id=>dietOf(id)?.label||'Ohne Angabe';
 function cookFor(email){if(!email)return null;email=email.toLowerCase();return cooks().find(c=>(c.emails||[]).some(e=>e.toLowerCase()===email))||null}
 function nameFor(email){return cookFor(email)?.name||(email?email.split('@')[0]:'Jemand')}
@@ -491,7 +494,7 @@ function sortRecipes(list,H){
 function matchRecipe(r,q,diet,tags){
   if(diet==='fav'&&!r.fav)return false;
   if(diet==='none'&&dietOf(r.diet))return false;
-  if(diet!=='all'&&diet!=='fav'&&diet!=='none'&&r.diet!==diet)return false;
+  if(diet!=='all'&&diet!=='fav'&&diet!=='none'&&normDiet(r.diet)!==diet)return false;
   if(tags.length&&!tags.every(t=>(r.tags||[]).includes(t)))return false;
   if(q){const hay=(r.name+' '+(r.tags||[]).join(' ')+' '+(r.ingredients||[]).map(i=>i.name).join(' ')).toLowerCase();if(!hay.includes(q.toLowerCase()))return false}
   return true;
@@ -785,7 +788,7 @@ function openPicker(date,slot){
   <div class="sheet-body">
     <div class="col-head"><h2 class="sheet-title">Was gibt’s?</h2><input type="search" id="pickQ" class="head-search" placeholder="Suchen …" aria-label="Gericht suchen"></div>
     <div class="ftags" id="pickFilter"></div>
-    <div class="seg" id="pickSort"><button data-s="name">A–Z</button><button data-s="selten">Selten</button><button data-s="lange">Lange nicht</button><button data-s="oft">Oft</button></div>
+    <div class="seg seg-full" id="pickSort"><button data-s="name">A–Z</button><button data-s="selten">Selten</button><button data-s="lange">Lange nicht</button><button data-s="oft">Oft</button></div>
     <div class="pick-list" id="pickList"></div>
     <span class="label">Ohne Rezept</span>
     <div class="quick">${['Reste','Essen gehen','Lieferdienst','Bei Freunden'].map(t=>`<button class="btn sm" data-text="${t}">${t}</button>`).join('')}</div>
@@ -873,7 +876,7 @@ function ingRow(i){
 }
 function editRecipe(id){
   const r=id?clean(recipe(id)):{id:null,name:'',diet:'',tags:[],fav:false,time:null,servings:S.settings.servings,ingredients:[],prep:'',notes:'',source:''};
-  let diet=r.diet||'',tags=new Set(r.tags||[]);
+  let diet=normDiet(r.diet||''),tags=new Set(r.tags||[]);
   const tagBtns=()=>[...new Set([...BASE_TAGS,...EXTRA_TAGS,...allTags(),...tags])].map(t=>`<button type="button" data-x="${esc(t)}" aria-pressed="${tags.has(t)}">${TAG_ICON[t]?TAG_ICON[t]+' ':''}${esc(t)}</button>`).join('');
   openSheet(head('',id?'Gericht bearbeiten':'Neues Gericht')+`<form class="sheet-body" id="recForm">
     <datalist id="unitList">${UNITS.map(u=>`<option value="${u}">`).join('')}</datalist>
@@ -998,7 +1001,7 @@ function demoSeed(){
     R('d2','Ofenlachs mit Zitronengemüse','fish',['Ofengericht','Low Carb'],35,[[2,'Stk','Lachsfilet'],[1,'Stk','Zucchini'],[1,'Stk','Paprika rot'],[250,'g','Kirschtomaten'],[1,'Stk','Zitrone'],[2,'EL','Olivenöl']],'Ofen auf 200 °C.\nGemüse aufs Blech, nach 10 Minuten Lachs dazu, 15 Minuten garen.'),
     R('d3','Käsespätzle','veggie',['Teiggericht','Milch'],40,[[500,'g','Spätzle'],[200,'g','Bergkäse'],[3,'Stk','Zwiebel'],[30,'g','Butter']],'Zwiebeln goldbraun braten.\nSpätzle und Käse schichten, kurz in den Ofen.'),
     R('d4','Kichererbsen-Curry','vegan',['Reis','Meal-Prep'],35,[[1,'Dose','Kichererbsen'],[1,'Stk','Süßkartoffel'],[1,'Stk','Brokkoli'],[400,'ml','Kokosmilch'],[2,'EL','Currypaste'],[150,'g','Basmatireis']],''),
-    R('d5','Hähnchen-Fajitas','poultry',['Schnell','Brot'],25,[[300,'g','Hähnchenbrust'],[2,'Stk','Paprika'],[1,'Stk','Zwiebel'],[6,'Stk','Tortillas'],[150,'g','Schmand'],[1,'Stk','Avocado']],''),
+    R('d5','Hähnchen-Fajitas','meat',['Schnell','Brot'],25,[[300,'g','Hähnchenbrust'],[2,'Stk','Paprika'],[1,'Stk','Zwiebel'],[6,'Stk','Tortillas'],[150,'g','Schmand'],[1,'Stk','Avocado']],''),
     R('d6','Shakshuka','veggie',['Schnell'],25,[[4,'Stk','Eier'],[1,'Dose','Gehackte Tomaten'],[1,'Stk','Paprika rot'],[100,'g','Feta'],[1,'Stk','Baguette'],[1,'g','Kreuzkümmel']],''),
     R('d7','Spaghetti Bolognese','meat',['Nudeln','Meal-Prep'],60,[[250,'g','Rinderhack'],[250,'g','Spaghetti'],[1,'Stk','Möhre'],[500,'ml','Passata'],[50,'g','Parmesan']],''),
     R('d8','Kartoffelsuppe','veggie',['Suppe','Kartoffel'],45,[[800,'g','Kartoffeln'],[2,'Stk','Möhre'],[1,'Stk','Lauch'],[1,'l','Gemüsebrühe'],[100,'ml','Sahne']],''),
