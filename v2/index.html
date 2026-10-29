@@ -105,7 +105,17 @@ body[data-tab="woche"] #col-woche, body[data-tab="menu"] #col-menu, body[data-ta
   .tabs{display:none}
   .only-mobile{display:none!important}
 }
-@media (max-width:1099px){.only-desktop{display:none!important}}
+@media (max-width:1099px){
+  .only-desktop{display:none!important}
+  :root{--hh:54px;--tabh:62px}
+  .top .wrap{padding-block:5px}
+  body:not([data-tab="woche"]) .top{display:none}
+  body[data-tab="woche"] main.layout{padding-block:6px calc(var(--tabh) + 8px + env(safe-area-inset-bottom,0px))}
+  body[data-tab="woche"] .days{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - var(--hh) - var(--tabh) - 16px);height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - var(--hh) - var(--tabh) - 16px);grid-template-rows:repeat(7,minmax(58px,1fr))}
+  body[data-tab="woche"] .days.two{grid-template-rows:repeat(7,minmax(84px,1fr))}
+}
+@media (min-width:1100px){.only-mobile{display:none!important}}
+@media (max-width:380px){.brand h1{font-size:17px;letter-spacing:.07em}.weeknav .kw{padding:0 4px}}
 
 /* ---------- Tabs ---------- */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:color-mix(in srgb,var(--surface) 90%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
@@ -172,7 +182,32 @@ textarea{resize:vertical;min-height:120px;line-height:1.5}
 .wk-track.anim{transition:transform .3s cubic-bezier(.2,.8,.2,1)}
 .wk-page{flex:0 0 100%;min-width:0;padding:0 3px}
 .wk-page[aria-hidden="true"]{pointer-events:none}
-.days{display:grid;gap:8px}
+.days{display:grid;gap:6px}
+.rday{display:grid;grid-template-columns:50px minmax(0,1fr);border-radius:14px;background:var(--surface);border:1.5px solid var(--line);overflow:hidden;min-height:0}
+.rday.has-cook{border-color:var(--c);background:color-mix(in srgb,var(--c) 11%,var(--surface))}
+.rd-date{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;border-right:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+.rd-date b{font-family:var(--font-display);font-size:20px;font-weight:700;letter-spacing:.04em}
+.rd-date small{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rday.is-today .rd-date{background:var(--ink);color:var(--bg)}
+.rday.is-today .rd-date small{color:var(--bg);opacity:.7}
+.rday.is-past{opacity:.6}
+.rd-slots{display:flex;flex-direction:column;min-width:0}
+.rslot{flex:1;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 10px;min-height:0}
+.rslot + .rslot{border-top:1px dashed color-mix(in srgb,var(--ink) 14%,transparent)}
+.rslot.picking{outline:2px solid var(--accent-text);outline-offset:-3px;border-radius:12px}
+.rmeal{flex:1;min-width:0;border:0;background:none;color:inherit;text-align:left;padding:3px 0;display:flex;flex-direction:column;gap:2px}
+.rname{font-weight:700;font-size:15px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.two .rname{-webkit-line-clamp:1}
+.rmeta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{--c:var(--muted);width:32px;height:32px;border-radius:50%;border:0;background:var(--c);color:#0b1220;display:grid;place-items:center;font-weight:800;font-size:12.5px;flex:none;padding:0}
+.av.both{background:conic-gradient(#60a5fa 0 50%,#f472b6 50% 100%)}
+.av.none{background:none;border:1.5px dashed var(--field);color:var(--muted)}
+.rempty{flex:1;display:flex;gap:6px}
+.rempty .btn{flex:1;border-style:dashed;background:none;color:var(--muted);height:36px}
+.rempty .btn.dice{flex:none;width:40px;padding:0}
+.minikw{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px}
+.minikw button{border:0;background:none;min-width:32px;height:30px;border-radius:999px;font-size:16px}
+.minikw .kwb{font-family:var(--font-display);font-weight:700;font-size:16px;padding:0 4px}
 @media (min-width:700px) and (max-width:1099px){.days{grid-template-columns:1fr 1fr}}
 .day{overflow:hidden;min-width:0}
 .day.is-today{border-color:var(--ink);border-width:2px}
@@ -293,7 +328,7 @@ textarea{resize:vertical;min-height:120px;line-height:1.5}
 <div id="shell" hidden>
   <header class="top">
     <div class="wrap">
-      <div class="brand"><h1>Wochenplaner</h1><span class="v">2</span><button class="edit-info" id="editInfo" data-act="seen-edit" hidden></button></div>
+      <div class="brand"><h1>Wochenplaner</h1><span class="v" id="verTag">2</span><button class="edit-info" id="editInfo" data-act="seen-edit" hidden></button></div>
       <div class="weeknav">
         <button data-act="week" data-d="-1" aria-label="Vorige Woche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
         <button class="kw" data-act="week" data-d="0" id="kwLabel" title="Zur aktuellen Woche"></button>
@@ -480,6 +515,7 @@ function render(){
   if(!MODE)return;
   const ae=document.activeElement,aid=ae&&ae.id,sel=ae&&typeof ae.selectionStart==='number'?ae.selectionStart:null;
   document.body.dataset.tab=UI.tab;
+  $('#verTag').textContent=MODE==='demo'?'Demo':'2';
   const days=weekDays();
   $('#kwLabel').innerHTML=`<b>KW ${kw(days[0])}</b><span>${short(days[0])} – ${short(days[6])}</span>`;
   document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.dataset.tab===UI.tab?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
@@ -507,8 +543,7 @@ function renderEditInfo(){
 /* Wochenübersicht (geplant / wer kocht / fleischlos) – vorerst ausgeblendet, später wieder einschalten */
 const SHOW_WEEK_SUMMARY=false;
 function renderWeek(){
-  let h=`<div class="col-head"><h2>Woche</h2></div>`;
-  if(MODE==='demo')h+=`<div class="banner"><p><b>Demo.</b> Beispieldaten, nur in diesem Browser. Für eure echten Daten mit Google anmelden.</p><button class="btn sm" data-act="logout">Zur Anmeldung</button></div>`;
+  let h='';
   if(SHOW_WEEK_SUMMARY)h+=weekSummary();
   h+=`<div class="wk-view" id="wkView"><div class="wk-track" id="wkTrack">${[-1,0,1].map(o=>`<div class="wk-page" aria-hidden="${o!==0}">${daysHtml(UI.weekOff+o,o===0)}</div>`).join('')}</div></div>`;
   return h;
@@ -532,28 +567,31 @@ function weekSummary(){
   </section>`;
 }
 function daysHtml(off,current){
-  const days=weekDays(off),today=iso(new Date());
-  let h='<div class="days">';
+  const days=weekDays(off),today=iso(new Date()),slots=S.settings.slots,two=slots.length>1;
+  let h=`<div class="days${two?' two':''}">`;
   days.forEach((d,i)=>{
-    const di=iso(d),isT=di===today,past=di<today;
-    h+=`<article class="card day${isT?' is-today':''}${past?' is-past':''}"><div class="day-head"><span class="wd">${WD[i]}</span><span class="dt">${short(d)}</span>${isT?'<span class="pill">Heute</span>':''}</div>`;
-    for(const s of S.settings.slots){
-      const e=(S.plan[di]||{})[s],picking=current&&UI.assign&&UI.assign.date===di&&UI.assign.slot===s;
-      h+=`<div class="slot${picking?' picking':''}">${S.settings.slots.length>1?`<div class="slot-label">${SLOT_LABEL[s]}</div>`:''}`;
+    const di=iso(d),isT=di===today,past=di<today,day=S.plan[di]||{};
+    const single=!two?day[slots[0]]:null,rc=single?cookView(single.cookId):null;
+    h+=`<article class="rday${isT?' is-today':''}${past?' is-past':''}${rc?' has-cook':''}" ${rc?`style="--c:${rc.color==='var(--ink)'?'#a78bfa':rc.color}"`:''}>
+      <div class="rd-date"><b>${WD[i].slice(0,2).toUpperCase()}</b><small>${short(d)}</small></div><div class="rd-slots">`;
+    for(const s of slots){
+      const e=day[s],picking=current&&UI.assign&&UI.assign.date===di&&UI.assign.slot===s;
+      h+=`<div class="rslot${picking?' picking':''}">`;
       if(e){
         const r=recipe(e.recipeId),cv=cookView(e.cookId);
         const name=r?r.name:(e.text||'Gelöschtes Gericht');
-        const meta=r?`<span class="chip ${dietCls(r.diet)}">${dietLabel(r.diet)}</span>${r.time?`<span>${r.time} Min</span>`:''}${(e.servings||2)!==S.settings.servings?`<span>${e.servings} Port.</span>`:''}`:'<span>ohne Rezept</span>';
-        h+=`<div class="meal${cv?' has-cook':''}" ${cv?`style="--c:${cv.color}"`:''}>
-          <button class="meal-main" data-act="edit-slot" data-date="${di}" data-slot="${s}"><span class="meal-name">${esc(name)}</span><span class="meal-meta">${meta}</span></button>
-          <button class="cook${cv?'':' unset'}" style="--c:${cv?cv.color:'var(--muted)'}" data-act="cycle-cook" data-date="${di}" data-slot="${s}" title="Tippen: Koch wechseln">${cv?`<span class="ini">${esc(cv.ini)}</span>${esc(cv.name)}`:'Wer kocht?'}</button></div>`;
+        const bits=[];if(two)bits.push(SLOT_LABEL[s]);
+        bits.push(r?dietLabel(r.diet):'ohne Rezept');if(r&&r.time)bits.push(r.time+' Min');
+        if(r&&(e.servings||2)!==S.settings.servings)bits.push(e.servings+' Port.');
+        h+=`<button class="rmeal" data-act="edit-slot" data-date="${di}" data-slot="${s}"><span class="rname">${esc(name)}</span><span class="rmeta"><i class="dd ${r?dietCls(r.diet):'d-none'}"></i>${bits.join(' · ')}</span></button>
+          <button class="av${e.cookId==='both'?' both':cv?'':' none'}" ${cv&&e.cookId!=='both'?`style="--c:${cv.color}"`:''} data-act="cycle-cook" data-date="${di}" data-slot="${s}" aria-label="Koch: ${esc(cv?cv.name:'offen')} – tippen zum Wechseln">${e.cookId==='both'?'':cv?esc(cv.ini):'?'}</button>`;
       }else{
-        h+=`<div class="empty-slot"><button class="btn sm" data-act="pick" data-date="${di}" data-slot="${s}">${picking?'Gericht rechts wählen …':'+ Gericht wählen'}</button>
+        h+=`<div class="rempty"><button class="btn sm" data-act="pick" data-date="${di}" data-slot="${s}">${picking?'Gericht wählen …':'+ '+(two?SLOT_LABEL[s]:'Gericht')}</button>
           <button class="btn sm dice" data-act="suggest" data-date="${di}" data-slot="${s}" title="Vorschlag: lange nicht gekocht" aria-label="Vorschlag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/></svg></button></div>`;
       }
       h+='</div>';
     }
-    h+='</article>';
+    h+='</div></article>';
   });
   return h+'</div>';
 }
@@ -616,7 +654,9 @@ function renderShop(){
   const wk=weekKey(),items=shoppingItems(),checked=(S.shop[wk]||{}).checked||{};
   const hh=Object.values(S.haushalt).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
   const open=items.filter(i=>!checked[i.key]).length;
-  let h=`<div class="col-head"><h2>Einkauf<small>KW ${kw(monday(UI.weekOff))}</small></h2>
+  let h=`<div class="col-head"><h2>Einkauf<small class="only-desktop">KW ${kw(monday(UI.weekOff))}</small></h2>
+    <div class="minikw only-mobile"><button data-act="week" data-d="-1" aria-label="Vorige Woche">‹</button><button data-act="week" data-d="0" class="kwb">KW ${kw(monday(UI.weekOff))}</button><button data-act="week" data-d="1" aria-label="Nächste Woche">›</button></div></div>
+    <div class="col-head" style="margin-top:-6px">
     <div class="row"><button class="btn sm" data-act="shop-hide">${UI.hideDone?'Erledigte zeigen':'Erledigte ausblenden'}</button><button class="btn sm primary" data-act="shop-copy">Kopieren</button></div></div>
   <div class="seg" role="group" aria-label="Liste für">${[['all','Alle'],...cooks().map(c=>[c.id,c.name])].map(([v,l])=>`<button data-act="shop-filter" data-v="${v}" aria-pressed="${UI.shopFilter===v}">${esc(l)}</button>`).join('')}</div>
   <p class="hint">${open} offen${UI.shopFilter!=='all'?' · nur Gerichte, die '+esc(cookById(UI.shopFilter)?.name||'')+' kocht':''}${S.settings.hideSmall?' · Kleinstmengen (≤ 2 g, Prise) ausgeblendet':''}</p>`;
