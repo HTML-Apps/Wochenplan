@@ -95,6 +95,8 @@ main.layout{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
 body[data-tab="woche"] #col-woche, body[data-tab="menu"] #col-menu, body[data-tab="einkauf"] #col-einkauf, body[data-tab="mehr"] #col-mehr{display:flex}
 .col-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px}
 .col-head h2{font-size:26px;text-transform:uppercase;letter-spacing:.05em;line-height:1;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.col-head h2{min-width:0;overflow:hidden}
+.minikw{flex:none}
 .head-search{flex:1;max-width:340px;height:38px;padding:6px 12px!important;border-radius:999px!important}
 .edit-dot{width:10px;height:10px;border-radius:50%;border:0;padding:0;background:var(--field);flex:none;align-self:flex-start;margin-top:2px}
 .edit-dot.fresh{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,.6)}
