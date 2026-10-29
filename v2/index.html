@@ -457,6 +457,7 @@ function cookView(id){if(id==='both')return {name:'Zusammen',color:'var(--ink)',
 const weekDays=(off=UI.weekOff)=>{const m=monday(off);return [0,1,2,3,4,5,6].map(i=>addDays(m,i))};
 const weekKey=()=>iso(monday(UI.weekOff));
 function weekEntries(off=UI.weekOff){const out=[];for(const d of weekDays(off)){const day=S.plan[iso(d)]||{};for(const s of S.settings.slots){if(day[s])out.push({date:iso(d),slot:s,...day[s]})}}return out}
+const isMeal=e=>!!(e&&(e.recipeId||e.text));
 function allTags(){const set=new Set(BASE_TAGS);Object.values(S.recipes).forEach(r=>(r.tags||[]).forEach(t=>set.add(t)));return [...set]}
 
 /* ---------- Heatmap ---------- */
@@ -606,7 +607,7 @@ function daysHtml(off,current){
     for(const s of slots){
       const e=day[s],picking=current&&UI.assign&&UI.assign.date===di&&UI.assign.slot===s;
       h+=`<div class="rslot${picking?' picking':''}">`;
-      if(e){
+      if(e&&(e.recipeId||e.text)){
         const r=recipe(e.recipeId),cv=cookView(e.cookId);
         const name=r?r.name:(e.text||'Gelöschtes Gericht');
         const bits=[];if(two)bits.push(SLOT_LABEL[s]);
@@ -615,8 +616,9 @@ function daysHtml(off,current){
         h+=`<button class="rmeal" data-act="edit-slot" data-date="${di}" data-slot="${s}"><span class="rname">${esc(name)}</span><span class="rmeta"><i class="dd ${r?dietCls(r.diet):'d-none'}"></i>${bits.join(' · ')}</span></button>
           <button class="av${e.cookId==='both'?' both':cv?'':' none'}" ${cv&&e.cookId!=='both'?`style="--c:${cv.color}"`:''} data-act="cycle-cook" data-date="${di}" data-slot="${s}" aria-label="Koch: ${esc(cv?cv.name:'offen')} – tippen zum Wechseln">${e.cookId==='both'?'':cv?esc(cv.ini):'?'}</button>`;
       }else{
-        h+=`<div class="rempty"><button class="btn sm" data-act="pick" data-date="${di}" data-slot="${s}">${picking?'Gericht wählen …':'+ '+(two?SLOT_LABEL[s]:'Gericht')}</button>
-          <button class="btn sm dice" data-act="suggest" data-date="${di}" data-slot="${s}" title="Vorschlag: lange nicht gekocht" aria-label="Vorschlag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/></svg></button></div>`;
+        const cid=e?e.cookId||'':'',cv=cookView(cid);
+        h+=`<div class="rempty"><button class="btn sm" data-act="pick" data-date="${di}" data-slot="${s}">${picking?'Gericht wählen …':'+ '+(two?SLOT_LABEL[s]:'Gericht')}</button></div>
+          <button class="av${cid==='both'?' both':cv?'':' none'}" ${cv&&cid!=='both'?`style="--c:${cv.color}"`:''} data-act="cycle-cook" data-date="${di}" data-slot="${s}" aria-label="Koch: ${esc(cv?cv.name:'offen')} – tippen zum Wechseln">${cid==='both'?'':cv?esc(cv.ini):'?'}</button>`;
       }
       h+='</div>';
     }
@@ -778,6 +780,7 @@ function openPicker(date,slot){
   openSheet(head(dayLabel(date,slot),'Was gibt’s?')+`<div class="sheet-body">
     <input type="search" id="pickQ" placeholder="Gericht suchen …" aria-label="Suchen">
     <div class="ftags" id="pickFilter"></div>
+    <button class="btn" id="pickRandom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/></svg>Vorschlag: lange nicht gekocht</button>
     <div class="seg" id="pickSort"><button data-s="name">A–Z</button><button data-s="selten">Selten</button><button data-s="lange">Lange nicht</button><button data-s="oft">Oft</button></div>
     <div class="pick-list" id="pickList"></div>
     <span class="label">Ohne Rezept</span>
@@ -785,6 +788,7 @@ function openPicker(date,slot){
     <div class="row" style="flex-wrap:nowrap"><input type="text" id="freeText" placeholder="Freitext, z. B. Pizza vom Italiener"><button class="btn" id="freeAdd">OK</button></div>
   </div>`,el=>{
     el.querySelector('#pickQ').oninput=e=>{q=e.target.value;draw()};
+    el.querySelector('#pickRandom').onclick=()=>{closeSheet();suggest(date,slot)};
     el.querySelector('#pickFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;
       if(b.dataset.t){const t=b.dataset.t;tg=tg.includes(t)?tg.filter(x=>x!==t):[...tg,t]}
       else if(b.dataset.f==='all'){f='all';tg=[]}
@@ -849,7 +853,7 @@ function openRecipe(id){
     el.querySelector('#delYes').onclick=()=>{Store.deleteRecipe(id);closeSheet();toast('Gericht gelöscht')};
     el.querySelector('#plan').onclick=()=>{
       const box=el.querySelector('#planBox');box.hidden=false;
-      const slots=[];weekDays().forEach((d,i)=>S.settings.slots.forEach(s=>{const f=!!(S.plan[iso(d)]||{})[s];slots.push({d:iso(d),s,f,l:WD[i].slice(0,2)+' '+short(d)+(S.settings.slots.length>1?' '+SLOT_LABEL[s]:'')})}));
+      const slots=[];weekDays().forEach((d,i)=>S.settings.slots.forEach(s=>{const f=isMeal((S.plan[iso(d)]||{})[s]);slots.push({d:iso(d),s,f,l:WD[i].slice(0,2)+' '+short(d)+(S.settings.slots.length>1?' '+SLOT_LABEL[s]:'')})}));
       box.innerHTML=`<div class="field"><span class="label">KW ${kw(monday(UI.weekOff))} – freie Tage</span>${slots.some(x=>!x.f)?`<div class="chips wrapy">${slots.filter(x=>!x.f).map(x=>`<button data-d="${x.d}" data-sl="${x.s}">${x.l}</button>`).join('')}</div>`:'<p class="hint">Diese Woche ist voll. Wechsle oben die Woche.</p>'}</div>`;
       box.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{closeSheet();assignTo(b.dataset.d,b.dataset.sl,id)});
     };
@@ -933,7 +937,7 @@ function convertV1(L){
     const meal=String(o.meal||'').trim();
     let rid=o.mealId&&recipes[o.mealId]?o.mealId:nameIdx[meal.toLowerCase()];
     const cookId=o.chef==='J'?'julia':o.chef==='H'?'hendrik':'';
-    if(!rid&&(!meal||meal==='---')){stats.skipped++;continue}
+    if(!rid&&(!meal||meal==='---')){if(cookId){days[date]={abend:{cookId,servings:2}};continue}stats.skipped++;continue}
     days[date]={abend:rid?{recipeId:rid,cookId,servings:2}:{text:meal,cookId,servings:2}};
     stats.days++;if(!rid)stats.textDays++;
   }
@@ -1128,7 +1132,9 @@ document.addEventListener('click',e=>{
     case 'cancel-assign':UI.assign=null;render();break;
     case 'suggest':suggest(date,slot);break;
     case 'edit-slot':editSlot(date,slot);break;
-    case 'cycle-cook':{const e2=(S.plan[date]||{})[slot];if(!e2)break;const order=[...cooks().map(c=>c.id),'both',''];Store.setSlot(date,slot,{...e2,cookId:order[(order.indexOf(e2.cookId||'')+1)%order.length]});break}
+    case 'cycle-cook':{const e2=(S.plan[date]||{})[slot]||{servings:S.settings.servings};const order=[...cooks().map(c=>c.id),'both',''];
+      const next=order[(order.indexOf(e2.cookId||'')+1)%order.length];
+      if(!next&&!e2.recipeId&&!e2.text)Store.setSlot(date,slot,null);else Store.setSlot(date,slot,{...e2,cookId:next});break}
     case 'open-recipe':if(UI.assign){assignTo(UI.assign.date,UI.assign.slot,id)}else openRecipe(id);break;
     case 'new-recipe':editRecipe(null);break;
     case 'edit-recipe':editRecipe(id);break;
